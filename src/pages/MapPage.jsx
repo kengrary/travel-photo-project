@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { fetchLocations } from '../api.js'
+import { fetchLocations, fetchPhotos } from '../api.js'
 
 const CENTER = [104.2, 35.6]
 // 免费无 key 底图（英文国界/地形）；中文省份名与图钉由下面叠加的图层提供
@@ -26,13 +26,15 @@ export default function MapPage() {
 
     map.on('load', async () => {
       let locs = []
+      let photos = []
       try { locs = await fetchLocations() } catch {}
+      try { photos = await fetchPhotos() } catch {}
       setLocations(locs)
 
       const res = await fetch('/data/100000_full.json')
       const geojson = await res.json()
 
-      // 各省照片数：为图钉图层准备
+      // 各省照片数：为顶部统计准备
       const countByProv = {}
       for (const l of locs) countByProv[l.province] = (countByProv[l.province] || 0) + l.count
 
@@ -73,29 +75,38 @@ export default function MapPage() {
         },
       })
 
-      // 图钉：有照片的省份用 vermilion 圆点标出，数量越多越大。
-      // 用 center 建点源，一个省一个点（避免 MultiPolygon 在每个子多边形质心都画点）
-      const pins = geojson.features
-        .filter((f) => f.properties.name && Array.isArray(f.properties.center))
-        .map((f) => ({
+      // 照片点：每张有 GPS 的照片标在其真实经纬度位置（省市县自然区分）
+      const photoPoints = photos
+        .filter((p) => p.lat != null && p.lng != null)
+        .map((p) => ({
           type: 'Feature',
-          properties: { count: countByProv[f.properties.name] || 0, name: f.properties.name },
-          geometry: { type: 'Point', coordinates: f.properties.center },
+          properties: {
+            id: p.id, name: p.original_name,
+            province: p.province, city: p.city, county: p.county,
+          },
+          geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
         }))
-        .filter((f) => f.properties.count > 0)
-      if (pins.length) {
-        map.addSource('pins', { type: 'geojson', data: { type: 'FeatureCollection', features: pins } })
+      if (photoPoints.length) {
+        map.addSource('photo-pins', { type: 'geojson', data: { type: 'FeatureCollection', features: photoPoints } })
         map.addLayer({
-          id: 'pin-halo', type: 'circle', source: 'pins',
+          id: 'photo-pin-halo', type: 'circle', source: 'photo-pins',
           paint: {
-            'circle-radius': ['interpolate', ['linear'], ['get', 'count'], 0, 10, 50, 16],
-            'circle-color': 'rgba(200, 67, 47, 0.18)', 'circle-stroke-color': '#c8432f', 'circle-stroke-width': 1.5,
+            'circle-radius': 10,
+            'circle-color': 'rgba(200, 67, 47, 0.18)',
+            'circle-stroke-color': '#c8432f', 'circle-stroke-width': 1.5,
           },
         })
         map.addLayer({
-          id: 'pin-dot', type: 'circle', source: 'pins',
-          paint: { 'circle-radius': 3, 'circle-color': '#c8432f' },
+          id: 'photo-pin-dot', type: 'circle', source: 'photo-pins',
+          paint: { 'circle-radius': 4, 'circle-color': '#c8432f' },
         })
+        map.on('click', 'photo-pin-dot', (e) => {
+          const f = e.features[0].properties
+          const city = f.city && f.city !== f.province ? f.city : null
+          navigate(`/wall?province=${encodeURIComponent(f.province || '')}${city ? `&city=${encodeURIComponent(city)}` : ''}`)
+        })
+        map.on('mouseenter', 'photo-pin-dot', () => (map.getCanvas().style.cursor = 'pointer'))
+        map.on('mouseleave', 'photo-pin-dot', () => (map.getCanvas().style.cursor = ''))
       }
 
       map.on('click', 'province-fill', (e) => {
