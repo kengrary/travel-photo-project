@@ -2,6 +2,7 @@ node_modules/
 dist/
 server/data/geojson/
 server/uploads/
+uploads/
 server/data/app.db
 *.log
 .DS_Store

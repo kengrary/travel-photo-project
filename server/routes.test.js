@@ -31,3 +31,22 @@ test('GET /api/photos/locations returns array', async () => {
   assert.equal(res.status, 200)
   assert.ok(Array.isArray(res.body.locations))
 })
+
+test('POST /api/photos with no files field returns 400 JSON (does not hang)', async () => {
+  const res = await request(app).post('/api/photos').send({})
+  assert.equal(res.status, 400)
+  assert.equal(res.body.error, 'No photos uploaded')
+})
+
+test('POST /api/photos with empty files field returns 400 JSON', async () => {
+  const res = await request(app).post('/api/photos').field('photos', '').attach('photos', Buffer.alloc(0), { filename: '', contentType: 'image/jpeg' })
+  assert.equal(res.status, 400)
+  assert.equal(res.body.error, 'No photos uploaded')
+})
+
+test('POST /api/photos with oversized file returns 400 JSON (multer LIMIT_FILE_SIZE)', async () => {
+  const big = Buffer.alloc(30 * 1024 * 1024 + 1)
+  const res = await request(app).post('/api/photos').attach('photos', big, { filename: 'big.jpg', contentType: 'image/jpeg' })
+  assert.equal(res.status, 400)
+  assert.equal(res.body.error, 'File too large')
+})

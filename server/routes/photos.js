@@ -1,14 +1,31 @@
 import { Router } from 'express'
 import exifr from 'exifr'
 import path from 'node:path'
+import fs from 'node:fs'
 import { insertPhoto, listPhotos, countByLocation, updateLocation } from '../db.js'
 import { upload, makeThumb } from '../upload.js'
 import { reverseGeocode } from '../geocode.js'
 
+async function cleanupFile(file) {
+  if (!file?.path) return
+  try { await fs.promises.unlink(file.path) } catch {}
+  try {
+    await fs.promises.unlink(path.join(path.dirname(file.path), 'thumbs', `thumb-${file.filename}`))
+  } catch {}
+}
+
 export function photosRouter(db, geo) {
   const router = Router()
 
-  router.post('/', upload.array('photos', 50), async (req, res) => {
+  router.post('/', (req, res, next) => {
+    upload.array('photos', 50)(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message })
+      next()
+    })
+  }, async (req, res) => {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No photos uploaded' })
+    }
     const results = []
     for (const file of req.files) {
       try {
@@ -33,6 +50,7 @@ export function photosRouter(db, geo) {
         })
         results.push(photo)
       } catch (e) {
+        await cleanupFile(file)
         results.push({ error: e.message, filename: file.filename })
       }
     }
