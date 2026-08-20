@@ -55,3 +55,8 @@ test('DELETE /api/photos/:id with no existing photo returns 404', async () => {
   const res = await request(app).delete('/api/photos/999')
   assert.equal(res.status, 404)
 })
+
+test('PATCH /api/photos/:id with no existing photo returns 404', async () => {
+  const res = await request(app).patch('/api/photos/999').send({ province: '广东省' })
+  assert.equal(res.status, 404)
+})

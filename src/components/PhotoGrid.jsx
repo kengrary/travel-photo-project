@@ -8,7 +8,7 @@ export function fmtTime(t) {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted }) {
+export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhotoDragStart }) {
   const [lightbox, setLightbox] = useState(null)
 
   const handleDelete = async (photo) => {
@@ -41,7 +41,13 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted }) {
       ) : (
         <div className="photogrid">
           {photos.map((p) => (
-            <div key={p.id} className="photo-card" onClick={() => setLightbox(p)}>
+            <div
+              key={p.id}
+              className={`photo-card${onPhotoDragStart ? ' draggable' : ''}`}
+              onClick={() => setLightbox(p)}
+              draggable={!!onPhotoDragStart}
+              onDragStart={onPhotoDragStart ? (e) => onPhotoDragStart(e, p) : undefined}
+            >
               <img src={`/uploads/${p.thumb_path}`} alt={p.original_name} loading="lazy" />
               <div className="photo-cap">
                 {[p.province, p.city, p.county].filter(Boolean).join(' ') || p.original_name}

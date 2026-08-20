@@ -2,7 +2,7 @@ import { Router } from 'express'
 import exifr from 'exifr'
 import path from 'node:path'
 import fs from 'node:fs'
-import { insertPhoto, listPhotos, countByLocation, updateLocation, deletePhoto } from '../db.js'
+import { insertPhoto, listPhotos, countByLocation, updateLocation, updatePhotoMeta, deletePhoto } from '../db.js'
 import { upload, makeThumb, uploadDir } from '../upload.js'
 import { reverseGeocode } from '../geocode.js'
 
@@ -85,6 +85,17 @@ export function photosRouter(db, geo) {
       province = r.province; city = r.city; county = r.county
     }
     const photo = updateLocation(db, req.params.id, { lat, lng, province, city, county, location_name })
+    if (!photo) return res.status(404).json({ error: 'Photo not found' })
+    res.json({ photo })
+  })
+
+  // 通用元数据更新（拖拽补位置/补时间）：body 可含 province/city/county/taken_at 之一或多个
+  router.patch('/:id', (req, res) => {
+    const fields = {}
+    for (const key of ['province', 'city', 'county', 'taken_at']) {
+      if (req.body[key] !== undefined) fields[key] = req.body[key]
+    }
+    const photo = updatePhotoMeta(db, req.params.id, fields)
     if (!photo) return res.status(404).json({ error: 'Photo not found' })
     res.json({ photo })
   })

@@ -78,6 +78,21 @@ export function updateLocation(db, id, loc) {
   return getPhoto(db, id)
 }
 
+// 通用元数据更新（拖拽补位置/补时间用）：仅更新传入的字段
+export function updatePhotoMeta(db, id, fields) {
+  const photo = getPhoto(db, id)
+  if (!photo) return null
+  const allowed = ['province', 'city', 'county', 'taken_at']
+  const sets = []
+  const params = { id }
+  for (const key of allowed) {
+    if (key in fields) { sets.push(`${key} = @${key}`); params[key] = fields[key] }
+  }
+  if (sets.length === 0) return photo
+  db.prepare(`UPDATE photos SET ${sets.join(', ')} WHERE id = @id`).run(params)
+  return getPhoto(db, id)
+}
+
 export function deletePhoto(db, id) {
   const photo = getPhoto(db, id)
   if (!photo) return null

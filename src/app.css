@@ -115,13 +115,28 @@ a { text-decoration: none; color: inherit; }
 .wall-groups { display: flex; flex-direction: column; gap: 28px; }
 .wall-group-head {
   display: flex; align-items: baseline; gap: 10px;
-  margin-bottom: 12px; padding-bottom: 8px;
+  margin-bottom: 8px; padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
 }
 .wall-group-title {
   font-family: var(--display); font-size: 17px; font-weight: 700; letter-spacing: 0.5px;
 }
 .wall-group-sub { font-size: 12px; color: var(--ink-soft); }
+.wall-subgroup { margin-bottom: 18px; }
+.wall-subgroup-title {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.3px; color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+/* 拖拽放置目标高亮 */
+.wall-group.droppable, .wall-subgroup.droppable { position: relative; }
+.wall-group.droppable .wall-group-title { color: var(--vermillion); }
+.wall-subgroup.droppable .wall-subgroup-title { color: var(--vermillion); }
+.wall-group.drag-over, .wall-subgroup.drag-over {
+  background: var(--accent-soft); border-radius: var(--radius); padding: 8px;
+  outline: 2px dashed var(--vermillion);
+}
+.photo-card.draggable { cursor: grab; }
+.photo-card.draggable:active { cursor: grabbing; }
 
 /* ---- 照片网格：发丝线框卡片 ---- */
 .photogrid {
