@@ -1,0 +1,121 @@
+// 批量导入本地照片目录
+// 用法：node server/scripts/import-photos.js <照片目录> [--dry-run]
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import exifr from 'exifr'
+import { openDb, insertPhoto } from '../db.js'
+import { makeThumb, uploadDir } from '../upload.js'
+import { loadGeoIndex, reverseGeocode } from '../geocode.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif', '.bmp', '.tif', '.tiff'])
+
+function collectImages(dir, out = []) {
+  let entries
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return out }
+  for (const e of entries) {
+    const full = path.join(dir, e.name)
+    if (e.isDirectory()) {
+      collectImages(full, out)
+    } else if (e.isFile() && IMAGE_EXTS.has(path.extname(e.name).toLowerCase())) {
+      out.push(full)
+    }
+  }
+  return out
+}
+
+function normalizeTakenAt(v) {
+  if (v instanceof Date) return v.toISOString()
+  if (v != null && typeof v !== 'string') return String(v)
+  return v
+}
+
+async function main() {
+  const args = process.argv.slice(2)
+  const dirArg = args.find((a) => !a.startsWith('--'))
+  const dryRun = args.includes('--dry-run')
+  if (!dirArg) {
+    console.error('用法: node server/scripts/import-photos.js <照片目录> [--dry-run]')
+    process.exit(1)
+  }
+  const srcDir = path.resolve(dirArg)
+  if (!fs.existsSync(srcDir)) {
+    console.error(`目录不存在: ${srcDir}`)
+    process.exit(1)
+  }
+
+  const db = openDb()
+  const geo = loadGeoIndex()
+
+  const hasOriginCol = db.prepare('PRAGMA table_info(photos)').all().some((c) => c.name === 'origin_path')
+  const hasSizeCol = db.prepare('PRAGMA table_info(photos)').all().some((c) => c.name === 'size_bytes')
+
+  const images = collectImages(srcDir)
+  console.log(`扫描到 ${images.length} 张图片（${srcDir}）`)
+
+  let ok = 0, skipped = 0, failed = 0
+  for (let i = 0; i < images.length; i++) {
+    const src = images[i]
+    const stat = fs.statSync(src)
+    const base = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(src).toLowerCase()}`
+    const dest = path.join(uploadDir, base)
+
+    // 去重：有 origin_path 列则精确按来源路径，否则按 (文件名, 大小) 粗略
+    let already = false
+    if (hasOriginCol) {
+      already = !!db.prepare('SELECT id FROM photos WHERE origin_path = ?').get(src)
+    } else if (hasSizeCol) {
+      already = !!db.prepare('SELECT id FROM photos WHERE original_name = ? AND size_bytes = ?').get(path.basename(src), stat.size)
+    }
+    if (already) { skipped++; continue }
+
+    try {
+      if (!dryRun) fs.copyFileSync(src, dest)
+      const meta = await exifr.parse(dryRun ? src : dest, { gps: true, tiff: true })
+      const lat = meta?.latitude ?? null
+      const lng = meta?.longitude ?? null
+      let takenAt = normalizeTakenAt(meta?.DateTimeOriginal ?? null)
+      let province = null, city = null, county = null
+      if (lat != null && lng != null) {
+        const r = reverseGeocode(geo, lng, lat)
+        province = r.province; city = r.city; county = r.county
+      }
+
+      let thumb = null, full = null
+      if (!dryRun) {
+        const t = await makeThumb(base)
+        thumb = t.thumb; full = t.full
+      }
+
+      if (!dryRun) {
+        insertPhoto(db, {
+          filename: base,
+          original_name: path.basename(src),
+          thumb_path: thumb,
+          full_path: full,
+          taken_at: takenAt,
+          lat, lng, province, city, county,
+          location_name: null,
+          size_bytes: stat.size,
+          created_at: new Date().toISOString(),
+        })
+        if (hasOriginCol) {
+          db.prepare('UPDATE photos SET origin_path = ? WHERE filename = ?').run(src, base)
+        }
+      }
+      const loc = province ? `${province} ${city || ''} ${county || ''}` : '无位置'
+      console.log(`[${i + 1}/${images.length}] ✓ ${path.basename(src)} -> ${loc} ${takenAt ? takenAt.slice(0, 10) : '无时间'}`)
+      ok++
+    } catch (e) {
+      if (!dryRun) { try { fs.unlinkSync(dest) } catch {} }
+      console.log(`[${i + 1}/${images.length}] ✗ ${path.basename(src)}: ${e.message}`)
+      failed++
+    }
+  }
+
+  console.log(`\n完成：成功 ${ok}，跳过(已导入) ${skipped}，失败 ${failed}`)
+}
+
+main().catch((e) => { console.error(e); process.exit(1) })

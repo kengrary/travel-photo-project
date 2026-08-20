@@ -27,3 +27,17 @@ npm run dev             # 或 npm run build && npm run start
 | `npm start` | 启动生产服务 |
 | `npm test` | 运行服务端测试 |
 | `npm run bootstrap:geo` | 下载中国边界数据到 `server/data/geojson/` |
+
+## 批量导入本地照片
+
+把本地整个照片目录一次性导入（自动读 GPS 定位、生成缩略图/大图、写数据库）：
+
+```bash
+node server/scripts/import-photos.js /path/to/照片目录
+# 先试跑不写库：
+node server/scripts/import-photos.js /path/to/照片目录 --dry-run
+```
+
+- 递归扫描目录下的 jpg/jpeg/png/heic/heif/webp/gif/bmp/tif 等图片
+- 有 GPS 的照片自动反查省市县；无 GPS 的归入"未知位置"（可在地图/照片墙手动补）
+- 已导入过的文件（按来源路径）会自动跳过，可安全重复运行
