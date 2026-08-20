@@ -30,4 +30,5 @@ app.use(express.static(distDir))
 app.get('*', (req, res) => res.sendFile(path.join(distDir, 'index.html')))
 
 const PORT = process.env.PORT || 3000
-app.listen(PORT, () => console.log(`Server on http://localhost:${PORT}`))
+const HOST = process.env.HOST || '0.0.0.0'
+app.listen(PORT, HOST, () => console.log(`Server on http://${HOST}:${PORT}`))
