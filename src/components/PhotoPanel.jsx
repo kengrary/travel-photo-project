@@ -18,10 +18,13 @@ export default function PhotoPanel({ filter, onClose }) {
   const place = [filter.province, filter.city, filter.county].filter(Boolean).join(' · ')
 
   if (collapsed) {
+    // 竖排空间有限：只显示市+区县，且截断，避免过长换行
+    const shortPlace = [filter.city && filter.city !== filter.province ? filter.city : filter.province, filter.county].filter(Boolean).join(' · ')
+    const clipped = shortPlace.length > 9 ? shortPlace.slice(0, 9) + '…' : shortPlace
     return (
-      <button className="photo-panel-tab" onClick={() => setCollapsed(false)} title="展开照片面板">
+      <button className="photo-panel-tab" onClick={() => setCollapsed(false)} title={place}>
         <span className="photo-panel-tab-title">照片</span>
-        <span className="photo-panel-tab-place">{place}</span>
+        <span className="photo-panel-tab-place">{clipped}</span>
         <span className="photo-panel-tab-arrow">◀</span>
       </button>
     )
