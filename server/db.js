@@ -12,6 +12,7 @@ export function openDb(dbPath = process.env.DB_PATH || path.resolve('server/data
       filename TEXT UNIQUE NOT NULL,
       original_name TEXT,
       thumb_path TEXT,
+      full_path TEXT,
       taken_at TEXT,
       lat REAL,
       lng REAL,
@@ -24,16 +25,21 @@ export function openDb(dbPath = process.env.DB_PATH || path.resolve('server/data
     CREATE INDEX IF NOT EXISTS idx_photos_taken ON photos(taken_at);
     CREATE INDEX IF NOT EXISTS idx_photos_loc ON photos(province, city, county);
   `)
+  // 迁移：旧库补充 full_path 列
+  const cols = db.prepare(`PRAGMA table_info(photos)`).all().map((c) => c.name)
+  if (!cols.includes('full_path')) {
+    db.exec(`ALTER TABLE photos ADD COLUMN full_path TEXT`)
+  }
   return db
 }
 
 export function insertPhoto(db, photo) {
   const stmt = db.prepare(`
-    INSERT INTO photos (filename, original_name, thumb_path, taken_at, lat, lng, province, city, county, location_name, created_at)
-    VALUES (@filename, @original_name, @thumb_path, @taken_at, @lat, @lng, @province, @city, @county, @location_name, @created_at)
+    INSERT INTO photos (filename, original_name, thumb_path, full_path, taken_at, lat, lng, province, city, county, location_name, created_at)
+    VALUES (@filename, @original_name, @thumb_path, @full_path, @taken_at, @lat, @lng, @province, @city, @county, @location_name, @created_at)
   `)
   const info = stmt.run({
-    original_name: null, thumb_path: null, taken_at: null, lat: null, lng: null,
+    original_name: null, thumb_path: null, full_path: null, taken_at: null, lat: null, lng: null,
     province: null, city: null, county: null, location_name: null,
     ...photo,
   })

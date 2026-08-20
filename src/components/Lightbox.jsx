@@ -19,10 +19,12 @@ export default function Lightbox({ photo, onClose, onDelete }) {
     }
   }
 
+  const fullSrc = photo.full_path ? `/uploads/${photo.full_path}` : `/uploads/${photo.filename}`
+
   return (
     <div className="lightbox" onClick={onClose}>
       <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
-        <img src={`/uploads/${photo.filename}`} alt={photo.original_name} />
+        <img src={fullSrc} alt={photo.original_name} />
         <div className="lightbox-meta">
           <strong>{photo.original_name}</strong><br />
           {fmtTime(photo.taken_at)}

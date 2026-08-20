@@ -8,7 +8,9 @@ import heicDecode from 'heic-decode'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../uploads')
 const THUMB_DIR = path.join(UPLOAD_DIR, 'thumbs')
+const FULL_DIR = path.join(UPLOAD_DIR, 'full')
 fs.mkdirSync(THUMB_DIR, { recursive: true })
+fs.mkdirSync(FULL_DIR, { recursive: true })
 
 export const uploadDir = UPLOAD_DIR
 
@@ -33,9 +35,12 @@ async function loadImage(src) {
 
 export async function makeThumb(filename) {
   const src = path.join(UPLOAD_DIR, filename)
-  const thumbName = `thumb-${path.basename(filename)}`
-  const dest = path.join(THUMB_DIR, thumbName)
   const img = await loadImage(src)
-  await img.resize({ width: 600, withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(dest)
-  return `thumbs/${thumbName}`
+  const base = path.basename(filename)
+  const thumbName = `thumb-${base}`
+  const fullName = `full-${base}`
+  await img.clone().resize({ width: 600, withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(path.join(THUMB_DIR, thumbName))
+  // 大图统一转为 JPEG（浏览器可直接显示，解决 HEIC 大图打不开）
+  await img.resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(path.join(FULL_DIR, fullName))
+  return { thumb: `thumbs/${thumbName}`, full: `full/${fullName}` }
 }

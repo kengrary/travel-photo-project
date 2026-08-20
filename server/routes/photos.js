@@ -9,8 +9,12 @@ import { reverseGeocode } from '../geocode.js'
 async function cleanupFile(file) {
   if (!file?.path) return
   try { await fs.promises.unlink(file.path) } catch {}
+  const base = path.basename(file.filename)
   try {
-    await fs.promises.unlink(path.join(path.dirname(file.path), 'thumbs', `thumb-${file.filename}`))
+    await fs.promises.unlink(path.join(path.dirname(file.path), 'thumbs', `thumb-${base}`))
+  } catch {}
+  try {
+    await fs.promises.unlink(path.join(path.dirname(file.path), 'full', `full-${base}`))
   } catch {}
 }
 
@@ -41,11 +45,12 @@ export function photosRouter(db, geo) {
           const r = reverseGeocode(geo, lng, lat)
           province = r.province; city = r.city; county = r.county
         }
-        const thumbPath = await makeThumb(file.filename)
+        const { thumb, full } = await makeThumb(file.filename)
         const photo = insertPhoto(db, {
           filename: file.filename,
           original_name: file.originalname,
-          thumb_path: thumbPath,
+          thumb_path: thumb,
+          full_path: full,
           taken_at: takenAt,
           lat, lng, province, city, county,
           location_name: null,
@@ -87,10 +92,11 @@ export function photosRouter(db, geo) {
   router.delete('/:id', async (req, res) => {
     const photo = deletePhoto(db, req.params.id)
     if (!photo) return res.status(404).json({ error: 'Photo not found' })
-    // 删除磁盘文件（原图 + 缩略图），尽力而为
+    // 删除磁盘文件（原图 + 缩略图 + 大图），尽力而为
     const candidates = [
       path.join(uploadDir, photo.filename),
       photo.thumb_path ? path.join(uploadDir, photo.thumb_path) : null,
+      photo.full_path ? path.join(uploadDir, photo.full_path) : null,
     ].filter(Boolean)
     await Promise.all(candidates.map((p) => fs.promises.unlink(p).catch(() => {})))
     res.json({ ok: true, id: photo.id })
