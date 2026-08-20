@@ -12,6 +12,13 @@ function regionFile(adcode) {
   return `/data/${adcode}_full.json`
 }
 
+// 跨页面导航保留地图状态（view 层级 + 相机位置），避免从照片墙返回时重置
+const mapState = {
+  view: { level: 'province', adcode: PROVINCE_ADCODE, name: '全国', province: null, city: null, parent: null },
+  center: CENTER,
+  zoom: 3.3,
+}
+
 export default function MapPage() {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -20,9 +27,7 @@ export default function MapPage() {
   const [hover, setHover] = useState(null)
   // view: { level, adcode, name, province, city, parent }
   // level: province | city | county ; parent = 上级 view（用于返回）
-  const [view, setView] = useState({
-    level: 'province', adcode: PROVINCE_ADCODE, name: '全国', province: null, city: null, parent: null,
-  })
+  const [view, setView] = useState(mapState.view)
   const navigate = useNavigate()
 
   const openWall = useCallback((province, city, county) => {
@@ -33,19 +38,29 @@ export default function MapPage() {
     navigate(`/wall?${q.toString()}`)
   }, [navigate])
 
-  // 初始地图
+  // 初始地图（恢复上次的相机位置）
   useEffect(() => {
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASE_STYLE,
-      center: CENTER,
-      zoom: 3.3,
+      center: mapState.center,
+      zoom: mapState.zoom,
       attributionControl: false,
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
+    map.on('moveend', () => {
+      const c = map.getCenter()
+      mapState.center = [c.lng, c.lat]
+      mapState.zoom = map.getZoom()
+    })
     return () => map.remove()
   }, [])
+
+  // 持久化当前 view，跨导航保留下钻层级
+  useEffect(() => {
+    mapState.view = view
+  }, [view])
 
   // 加载当前层级边界 + 照片点
   useEffect(() => {
