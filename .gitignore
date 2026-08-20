@@ -1,0 +1,7 @@
+node_modules/
+dist/
+server/data/geojson/
+server/uploads/
+server/data/app.db
+*.log
+.DS_Store
