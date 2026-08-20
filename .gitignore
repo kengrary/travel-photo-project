@@ -4,5 +4,7 @@ server/data/geojson/
 server/uploads/
 uploads/
 server/data/app.db
+server/data/app.db-shm
+server/data/app.db-wal
 *.log
 .DS_Store

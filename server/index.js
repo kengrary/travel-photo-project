@@ -13,6 +13,7 @@ const db = openDb()
 const geo = loadGeoIndex()
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')))
+app.use('/data', express.static(path.resolve(__dirname, 'data/geojson')))
 app.use('/api/photos', photosRouter(db, geo))
 
 const distDir = path.resolve(__dirname, '../dist')
