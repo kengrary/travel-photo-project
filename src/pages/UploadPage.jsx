@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import { uploadPhotos, setPhotoLocation } from '../api.js'
@@ -10,7 +10,7 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState([])
   const [manualTarget, setManualTarget] = useState(null) // 待手动定位的照片
-  const [map, setMap] = useState(null)
+  const mapRef = useRef(null)
   const mapContainer = useRef(null)
   const markerRef = useRef(null)
   const navigate = useNavigate()
@@ -19,24 +19,41 @@ export default function UploadPage() {
 
   const doUpload = async () => {
     setUploading(true)
-    const photos = await uploadPhotos(files)
-    setResult(photos)
-    setUploading(false)
-    // 有未定位照片时，进入手动定位
-    const needs = photos.filter((p) => !p.province)
-    if (needs.length) { setManualTarget(needs[0]); openMap() }
+    try {
+      const photos = await uploadPhotos(files)
+      setResult(photos)
+      // 有未定位照片时，进入手动定位（地图由 useEffect 在容器渲染后创建）
+      const needs = photos.filter((p) => !p.province)
+      if (needs.length) setManualTarget(needs[0])
+    } catch (err) {
+      alert(`上传失败：${err.message}`)
+    } finally {
+      setUploading(false)
+    }
   }
 
-  const openMap = () => {
-    if (map) return
-    const m = new maplibregl.Map({ container: mapContainer.current, style: BASE_STYLE, center: [104.195, 35.861], zoom: 3.5 })
-    m.on('click', (e) => {
+  const targetId = manualTarget && manualTarget.id
+  useEffect(() => {
+    if (!targetId) return
+    // 组件已提交渲染，manualTarget 非空时容器 div 一定在 DOM 中
+    const map = new maplibregl.Map({
+      container: mapContainer.current,
+      style: BASE_STYLE,
+      center: [104.195, 35.861],
+      zoom: 3.5,
+    })
+    mapRef.current = map
+    map.on('click', (e) => {
       if (markerRef.current) markerRef.current.remove()
-      markerRef.current = new maplibregl.Marker().setLngLat(e.lngLat).addTo(m)
+      markerRef.current = new maplibregl.Marker().setLngLat(e.lngLat).addTo(map)
       setManualTarget((t) => (t ? { ...t, _lat: e.lngLat.lat, _lng: e.lngLat.lng } : t))
     })
-    setMap(m)
-  }
+    return () => {
+      map.remove()
+      mapRef.current = null
+      markerRef.current = null
+    }
+  }, [targetId])
 
   const confirmLocation = async () => {
     if (!manualTarget || manualTarget._lat == null) return
