@@ -41,15 +41,20 @@ async function main() {
   const includeProvinces = new Set()
   const excludeProvinces = new Set()
   let onlyNoLocation = false
+  const includeExts = new Set()
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     if (a === '--include-province' && args[i + 1]) { includeProvinces.add(args[++i]); }
     if (a === '--exclude-province' && args[i + 1]) { excludeProvinces.add(args[++i]); }
     if (a === '--no-location') onlyNoLocation = true
+    if (a === '--ext' && args[i + 1]) {
+      // 支持逗号分隔的多个扩展名，如 --ext heic,jpg
+      for (const e of args[++i].split(',')) if (e) includeExts.add(e.trim().replace(/^\./, '').toLowerCase())
+    }
   }
 
   if (!dirArg) {
-    console.error('用法: node server/scripts/import-photos.js <照片目录> [--dry-run] [--include-province 广东省] [--exclude-province 广东省] [--no-location]')
+    console.error('用法: node server/scripts/import-photos.js <照片目录> [--dry-run] [--include-province 广东省] [--exclude-province 广东省] [--no-location] [--ext heic,jpg]')
     process.exit(1)
   }
   const srcDir = path.resolve(dirArg)
@@ -69,10 +74,16 @@ async function main() {
   if (includeProvinces.size) console.log(`过滤：仅导入 ${[...includeProvinces].join('、')}`)
   if (excludeProvinces.size) console.log(`过滤：排除 ${[...excludeProvinces].join('、')}`)
   if (onlyNoLocation) console.log('过滤：仅导入无位置照片')
+  if (includeExts.size) console.log(`过滤：仅导入 ${[...includeExts].join(', ')} 格式`)
 
   let ok = 0, skipped = 0, failed = 0, filtered = 0
   for (let i = 0; i < images.length; i++) {
     const src = images[i]
+    const ext = path.extname(src).replace(/^\./, '').toLowerCase()
+
+    // 扩展名过滤
+    if (includeExts.size && !includeExts.has(ext)) { filtered++; continue }
+
     const stat = fs.statSync(src)
     const base = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(src).toLowerCase()}`
     const dest = path.join(uploadDir, base)

@@ -49,6 +49,10 @@ node server/scripts/import-photos.js /path/to/照片目录 --include-province �
 
 # 只导入无位置的照片
 node server/scripts/import-photos.js /path/to/照片目录 --no-location
+
+# 只导入指定格式（可逗号分隔多个）
+node server/scripts/import-photos.js /path/to/照片目录 --ext heic
+node server/scripts/import-photos.js /path/to/照片目录 --ext heic,jpg
 ```
 
 - 递归扫描目录下的 jpg/jpeg/png/heic/heif/webp/gif/bmp/tif 等图片
