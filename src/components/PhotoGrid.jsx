@@ -13,7 +13,7 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted }) {
 
   const handleDelete = async (photo) => {
     try {
-      await onDelete(photo)
+      await onDelete(photo.id)
       setLightbox(null)
       if (onDeleted) onDeleted(photo.id)
     } catch (e) {
