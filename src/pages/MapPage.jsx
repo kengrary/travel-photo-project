@@ -74,27 +74,29 @@ export default function MapPage() {
         map.addLayer({
           id: 'photo-pin-halo', type: 'circle', source: 'photo-pins',
           paint: {
-            'circle-radius': 10, 'circle-color': 'rgba(200, 67, 47, 0.22)',
+            'circle-radius': 14, 'circle-color': 'rgba(200, 67, 47, 0.22)',
             'circle-stroke-color': '#c8432f', 'circle-stroke-width': 1.5,
           },
         })
         map.addLayer({
           id: 'photo-pin-dot', type: 'circle', source: 'photo-pins',
-          paint: { 'circle-radius': 4, 'circle-color': '#c8432f' },
+          paint: { 'circle-radius': 7, 'circle-color': '#c8432f' },
         })
       }
 
       if (!map._hasPinClick) {
         map._hasPinClick = true
-        map.on('click', 'photo-pin-dot', (e) => {
+        // 点击热区覆盖 halo + dot，圆点更容易点中
+        const pinLayers = ['photo-pin-dot', 'photo-pin-halo']
+        map.on('click', pinLayers, (e) => {
           const f = e.features[0].properties
           openWall(f.province, f.city, f.county)
         })
-        map.on('mouseenter', 'photo-pin-dot', () => {
+        map.on('mouseenter', pinLayers, () => {
           map.getCanvas().style.cursor = 'pointer'
           setHover('查看照片')
         })
-        map.on('mouseleave', 'photo-pin-dot', () => {
+        map.on('mouseleave', pinLayers, () => {
           map.getCanvas().style.cursor = ''
           setHover(null)
         })
