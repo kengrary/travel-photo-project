@@ -71,3 +71,10 @@ export function updateLocation(db, id, loc) {
   stmt.run({ id, ...loc })
   return getPhoto(db, id)
 }
+
+export function deletePhoto(db, id) {
+  const photo = getPhoto(db, id)
+  if (!photo) return null
+  db.prepare('DELETE FROM photos WHERE id = ?').run(id)
+  return photo
+}

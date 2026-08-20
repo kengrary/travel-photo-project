@@ -50,3 +50,8 @@ test('POST /api/photos with oversized file returns 400 JSON (multer LIMIT_FILE_S
   assert.equal(res.status, 400)
   assert.equal(res.body.error, 'File too large')
 })
+
+test('DELETE /api/photos/:id with no existing photo returns 404', async () => {
+  const res = await request(app).delete('/api/photos/999')
+  assert.equal(res.status, 404)
+})

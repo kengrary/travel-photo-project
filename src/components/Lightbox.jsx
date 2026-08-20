@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { fmtTime } from './PhotoGrid.jsx'
 
-export default function Lightbox({ photo, onClose }) {
+export default function Lightbox({ photo, onClose, onDelete }) {
   useEffect(() => {
     if (!photo) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -11,6 +11,13 @@ export default function Lightbox({ photo, onClose }) {
   }, [photo, onClose])
 
   if (!photo) return null
+
+  const handleDelete = () => {
+    if (!onDelete) return
+    if (window.confirm(`确定删除这张照片「${photo.original_name}」吗？此操作不可恢复。`)) {
+      onDelete(photo)
+    }
+  }
 
   return (
     <div className="lightbox" onClick={onClose}>
@@ -23,6 +30,9 @@ export default function Lightbox({ photo, onClose }) {
           {[photo.province, photo.city, photo.county].filter(Boolean).join(' ') || '未知地点'}
           {photo.location_name ? ` · ${photo.location_name}` : ''}
         </div>
+        {onDelete && (
+          <button className="btn btn-delete" onClick={handleDelete}>删除照片</button>
+        )}
       </div>
     </div>
   )

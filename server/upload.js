@@ -10,6 +10,8 @@ const UPLOAD_DIR = path.resolve(__dirname, '../uploads')
 const THUMB_DIR = path.join(UPLOAD_DIR, 'thumbs')
 fs.mkdirSync(THUMB_DIR, { recursive: true })
 
+export const uploadDir = UPLOAD_DIR
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {

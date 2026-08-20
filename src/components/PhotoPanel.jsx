@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchPhotos } from '../api.js'
+import { fetchPhotos, deletePhoto } from '../api.js'
 import PhotoGrid from './PhotoGrid.jsx'
 
 export default function PhotoPanel({ filter, onClose }) {
@@ -16,6 +16,8 @@ export default function PhotoPanel({ filter, onClose }) {
   if (!filter || !filter.province) return null
 
   const place = [filter.province, filter.city, filter.county].filter(Boolean).join(' · ')
+
+  const handleDeleted = (id) => setPhotos((list) => list.filter((p) => p.id !== id))
 
   if (collapsed) {
     // 竖排空间有限：只显示市+区县，且截断，避免过长换行
@@ -44,7 +46,7 @@ export default function PhotoPanel({ filter, onClose }) {
       </div>
       <div className="photo-panel-body">
         <p className="photo-panel-sub">{photos.length} 张照片</p>
-        <PhotoGrid photos={photos} />
+        <PhotoGrid photos={photos} onDelete={deletePhoto} onDeleted={handleDeleted} />
       </div>
     </aside>
   )

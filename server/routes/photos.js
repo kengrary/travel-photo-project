@@ -2,8 +2,8 @@ import { Router } from 'express'
 import exifr from 'exifr'
 import path from 'node:path'
 import fs from 'node:fs'
-import { insertPhoto, listPhotos, countByLocation, updateLocation } from '../db.js'
-import { upload, makeThumb } from '../upload.js'
+import { insertPhoto, listPhotos, countByLocation, updateLocation, deletePhoto } from '../db.js'
+import { upload, makeThumb, uploadDir } from '../upload.js'
 import { reverseGeocode } from '../geocode.js'
 
 async function cleanupFile(file) {
@@ -82,6 +82,18 @@ export function photosRouter(db, geo) {
     const photo = updateLocation(db, req.params.id, { lat, lng, province, city, county, location_name })
     if (!photo) return res.status(404).json({ error: 'Photo not found' })
     res.json({ photo })
+  })
+
+  router.delete('/:id', async (req, res) => {
+    const photo = deletePhoto(db, req.params.id)
+    if (!photo) return res.status(404).json({ error: 'Photo not found' })
+    // 删除磁盘文件（原图 + 缩略图），尽力而为
+    const candidates = [
+      path.join(uploadDir, photo.filename),
+      photo.thumb_path ? path.join(uploadDir, photo.thumb_path) : null,
+    ].filter(Boolean)
+    await Promise.all(candidates.map((p) => fs.promises.unlink(p).catch(() => {})))
+    res.json({ ok: true, id: photo.id })
   })
 
   return router

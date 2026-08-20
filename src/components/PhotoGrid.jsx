@@ -8,8 +8,19 @@ export function fmtTime(t) {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
-export default function PhotoGrid({ photos, onEmpty }) {
+export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted }) {
   const [lightbox, setLightbox] = useState(null)
+
+  const handleDelete = async (photo) => {
+    try {
+      await onDelete(photo)
+      setLightbox(null)
+      if (onDeleted) onDeleted(photo.id)
+    } catch (e) {
+      alert(`删除失败：${e.message}`)
+    }
+  }
+
   return (
     <>
       {photos.length === 0 ? (
@@ -31,7 +42,7 @@ export default function PhotoGrid({ photos, onEmpty }) {
           ))}
         </div>
       )}
-      <Lightbox photo={lightbox} onClose={() => setLightbox(null)} />
+      <Lightbox photo={lightbox} onClose={() => setLightbox(null)} onDelete={onDelete ? handleDelete : null} />
     </>
   )
 }

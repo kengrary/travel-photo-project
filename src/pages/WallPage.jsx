@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { fetchPhotos } from '../api.js'
+import { fetchPhotos, deletePhoto } from '../api.js'
 import PhotoGrid from '../components/PhotoGrid.jsx'
 
 export default function WallPage() {
@@ -24,6 +24,8 @@ export default function WallPage() {
   const place = [filter.province, filter.city, filter.county].filter(Boolean).join(' · ')
   const title = place || '全部照片'
 
+  const handleDeleted = (id) => setPhotos((list) => list.filter((p) => p.id !== id))
+
   return (
     <div className="page">
       <div className="page-head">
@@ -38,7 +40,7 @@ export default function WallPage() {
         </div>
       </div>
 
-      <PhotoGrid photos={photos} />
+      <PhotoGrid photos={photos} onDelete={deletePhoto} onDeleted={handleDeleted} />
     </div>
   )
 }
