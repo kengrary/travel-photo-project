@@ -38,6 +38,19 @@ node server/scripts/import-photos.js /path/to/照片目录
 node server/scripts/import-photos.js /path/to/照片目录 --dry-run
 ```
 
+**过滤干扰图片**（按省市县/是否有位置筛选）：
+
+```bash
+# 只导入非广东省的照片（排除干扰）
+node server/scripts/import-photos.js /path/to/照片目录 --exclude-province 广东省
+
+# 只导入指定省的照片（可多次指定）
+node server/scripts/import-photos.js /path/to/照片目录 --include-province 浙江省 --include-province 江苏省
+
+# 只导入无位置的照片
+node server/scripts/import-photos.js /path/to/照片目录 --no-location
+```
+
 - 递归扫描目录下的 jpg/jpeg/png/heic/heif/webp/gif/bmp/tif 等图片
 - 有 GPS 的照片自动反查省市县；无 GPS 的归入"未知位置"（可在地图/照片墙手动补）
 - 已导入过的文件（按来源路径）会自动跳过，可安全重复运行
