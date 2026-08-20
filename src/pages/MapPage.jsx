@@ -92,9 +92,10 @@ export default function MapPage() {
           id: 'cluster-circle', type: 'circle', source: 'photo-points',
           filter: ['has', 'point_count'],
           paint: {
-            'circle-radius': 18,
+            // 数量越多圆圈略大，但整体更紧凑
+            'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 12, 20, 14, 100, 16, 500, 18],
             'circle-color': 'rgba(200, 67, 47, 0.85)',
-            'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
+            'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
           },
         })
         // 聚合数字
@@ -113,7 +114,7 @@ export default function MapPage() {
           id: 'photo-dot', type: 'circle', source: 'photo-points',
           filter: ['!', ['has', 'point_count']],
           paint: {
-            'circle-radius': 7, 'circle-color': '#c8432f',
+            'circle-radius': 6, 'circle-color': '#c8432f',
             'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
           },
         })
