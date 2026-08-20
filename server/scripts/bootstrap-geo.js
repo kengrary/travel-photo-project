@@ -37,6 +37,11 @@ async function main() {
     const provName = p.name
     const provFile = `${provAdcode}_full.json`
 
+    index.push({
+      adcode: provAdcode, name: provName, level: 'province',
+      parentAdcode: null, province: provName, city: '', county: '',
+    })
+
     if (!fs.existsSync(path.join(OUT, provFile))) {
       const data = await fetchJSON(`${BASE}/${provFile}`)
       if (!data) {
