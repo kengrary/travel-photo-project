@@ -45,9 +45,19 @@ export default function MapPage() {
         id: 'province-line', type: 'line', source: 'provinces',
         paint: { 'line-color': '#b7a57f', 'line-width': 1 },
       })
-      // 中文省份名（从 GeoJSON 叠加，解决底图英文）
+      // 中文省份名：用每个省的 center 建独立点源，一个省只标一次
+      // （避免 MultiPolygon 省份在每个子多边形质心重复标名）
+      const labelPoints = geojson.features.map((f) => ({
+        type: 'Feature',
+        properties: { name: f.properties.name },
+        geometry: { type: 'Point', coordinates: f.properties.center },
+      }))
+      map.addSource('province-labels', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: labelPoints },
+      })
       map.addLayer({
-        id: 'province-label', type: 'symbol', source: 'provinces',
+        id: 'province-label', type: 'symbol', source: 'province-labels',
         layout: {
           'text-field': ['get', 'name'],
           'text-size': 12, 'text-letter-spacing': 0.1,
