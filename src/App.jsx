@@ -9,8 +9,7 @@ export default function App() {
     <div style={{ height: '100%' }}>
       <header className="appbar">
         <div className="appbar-brand">
-          <span className="appbar-dot" />
-          旅行足迹
+          足迹地图册 <small>atlas · cn</small>
         </div>
         <nav className="appbar-nav">
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>地图</NavLink>

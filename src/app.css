@@ -1,156 +1,181 @@
+/* ============================================================
+   "足迹地图册" — cartographic atlas design system
+   The map is the hero: an atlas plate with graticule, compass,
+   hairline borders and pin markers.
+   ============================================================ */
+
 :root {
-  --ink: #22262b;
-  --ink-soft: #5b6470;
-  --paper: #f6f4ef;
-  --surface: #ffffff;
-  --line: #e5e1d8;
-  --accent: #c2402f;
-  --accent-deep: #a93627;
-  --accent-soft: #f4e4e0;
-  --marker: #d64541;
-  --marker-ring: rgba(214, 69, 65, 0.22);
-  --shadow: 0 6px 20px rgba(34, 38, 43, 0.10);
-  --radius: 12px;
-  --font: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --paper: #efe6d2;        /* 旧纸地图底色 */
+  --ink: #35322c;          /* 印刷墨色 */
+  --ink-soft: #6b6455;     /* 次要文字 */
+  --line: #cfc0a4;         /* 地图线稿 / 发丝线 */
+  --line-strong: #b7a57f;
+  --vermillion: #c8432f;   /* 图钉红（仅用于定位点/强调） */
+  --atlas: #2f4a63;        /* 图册蓝（次要强调/链接） */
+  --surface: #fbf7ec;      /* 面板纸色 */
+  --radius: 4px;           /* 克制圆角，偏版画 */
+  --shadow: 0 1px 0 rgba(53, 50, 44, 0.06), 0 8px 24px rgba(53, 50, 44, 0.08);
+  --display: "Songti SC", "Noto Serif SC", "STSong", "SimSun", serif;
+  --sans: -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --mono: "SF Mono", "Roboto Mono", ui-monospace, monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; }
 body {
-  font-family: var(--font);
+  font-family: var(--sans);
   color: var(--ink);
   background: var(--paper);
   -webkit-font-smoothing: antialiased;
+  font-size: 15px;
 }
 
-button { font-family: var(--font); cursor: pointer; }
+button { font-family: var(--sans); cursor: pointer; }
 a { text-decoration: none; color: inherit; }
+::selection { background: var(--vermillion); color: #fff; }
 
-/* ---- Top app bar ---- */
+/* ---- 顶部导航：发丝线框的图册栏 ---- */
 .appbar {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 56px;
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
+  position: fixed; top: 0; left: 0; right: 0; height: 56px; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px;
+  background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
-.appbar-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; }
-.appbar-dot {
-  width: 12px; height: 12px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft);
+.appbar-brand {
+  display: flex; align-items: baseline; gap: 10px;
+  font-family: var(--display); font-weight: 700; font-size: 19px;
+  letter-spacing: 2px; color: var(--ink);
 }
-.appbar-nav { display: flex; align-items: center; gap: 4px; }
+.appbar-brand small {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+  color: var(--vermillion); text-transform: uppercase;
+}
+.appbar-nav { display: flex; align-items: center; gap: 2px; }
 .appbar-nav a {
-  padding: 7px 14px; border-radius: 999px;
-  font-size: 14px; color: var(--ink-soft); transition: all 0.15s;
+  position: relative; padding: 8px 16px;
+  font-size: 14px; letter-spacing: 1px; color: var(--ink-soft);
+  transition: color 0.15s;
 }
-.appbar-nav a:hover { color: var(--ink); background: var(--accent-soft); }
-.appbar-nav a.active { color: #fff; background: var(--accent); font-weight: 600; }
+.appbar-nav a::after {
+  content: ""; position: absolute; left: 16px; right: 16px; bottom: 3px;
+  height: 2px; background: var(--vermillion); transform: scaleX(0);
+  transform-origin: left; transition: transform 0.18s;
+}
+.appbar-nav a:hover { color: var(--ink); }
+.appbar-nav a.active { color: var(--ink); font-weight: 600; }
+.appbar-nav a.active::after { transform: scaleX(1); }
 
-/* ---- Buttons ---- */
+/* ---- 按钮：版画式，不用药丸 ---- */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  border: none; border-radius: 999px;
-  padding: 12px 22px; font-size: 15px; font-weight: 600;
+  border: 1px solid transparent; border-radius: var(--radius);
+  padding: 10px 18px; font-size: 14px; font-weight: 600; letter-spacing: 0.5px;
   transition: all 0.15s;
 }
-.btn-primary { background: var(--accent); color: #fff; box-shadow: var(--shadow); }
-.btn-primary:hover { background: var(--accent-deep); }
-.btn-ghost { background: var(--surface); color: var(--ink); border: 1px solid var(--line); }
-.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
-
-/* ---- Floating action ---- */
-.fab {
-  position: absolute;
-  bottom: 22px; left: 50%; transform: translateX(-50%);
-  z-index: 6;
+.btn-primary {
+  background: var(--vermillion); color: #fff; border-color: var(--vermillion);
+  box-shadow: var(--shadow);
 }
+.btn-primary:hover { background: #a93624; border-color: #a93624; }
+.btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+.btn-ghost:hover { border-color: var(--vermillion); color: var(--vermillion); }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
 
-/* ---- Segmented control ---- */
-.seg { display: inline-flex; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+/* ---- 浮动上传按钮 ---- */
+.fab { position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 6; }
+
+/* ---- 分段控件：发丝线框 ---- */
+.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
 .seg button {
-  border: none; background: transparent; border-radius: 999px;
-  padding: 7px 16px; font-size: 13px; color: var(--ink-soft); transition: all 0.15s;
+  border: none; background: var(--surface); border-right: 1px solid var(--line);
+  padding: 8px 18px; font-size: 13px; letter-spacing: 1px; color: var(--ink-soft);
+  transition: all 0.15s;
 }
+.seg button:last-child { border-right: none; }
 .seg button.on { background: var(--ink); color: #fff; font-weight: 600; }
+.seg button:not(.on):hover { color: var(--ink); }
 
-/* ---- Page scaffolding ---- */
-.page { padding: 76px 24px 48px; max-width: 1200px; margin: 0 auto; }
-.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
-.page-title { font-size: 26px; font-weight: 800; letter-spacing: 0.5px; }
-.page-sub { color: var(--ink-soft); font-size: 14px; margin-top: 4px; }
+/* ---- 页面骨架 ---- */
+.page { padding: 80px 24px 56px; max-width: 1200px; margin: 0 auto; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+.eyebrow {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px;
+  color: var(--vermillion); text-transform: uppercase; margin-bottom: 6px;
+}
+.page-title { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: 1px; }
+.page-sub { color: var(--ink-soft); font-size: 14px; margin-top: 6px; letter-spacing: 0.3px; }
 
-/* ---- Photo grid ---- */
+/* ---- 照片网格：发丝线框卡片 ---- */
 .photogrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 16px;
 }
 .photo-card {
-  position: relative; overflow: hidden; border-radius: var(--radius);
-  background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  cursor: pointer; transition: transform 0.18s ease, box-shadow 0.18s ease;
+  position: relative; overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer; transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s;
 }
-.photo-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.photo-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--line-strong); }
 .photo-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
 .photo-cap {
   position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 26px 10px 9px; font-size: 12px; color: #fff;
-  background: linear-gradient(transparent, rgba(0,0,0,0.65));
-  opacity: 0; transition: opacity 0.18s;
+  padding: 28px 10px 9px; font-size: 12px; letter-spacing: 0.3px; color: #fbf7ec;
+  background: linear-gradient(transparent, rgba(40, 38, 33, 0.72));
+  opacity: 0; transition: opacity 0.16s;
 }
 .photo-card:hover .photo-cap { opacity: 1; }
 
 .empty {
-  text-align: center; padding: 60px 20px; color: var(--ink-soft);
-  border: 1.5px dashed var(--line); border-radius: var(--radius); background: var(--surface);
+  text-align: center; padding: 64px 24px; color: var(--ink-soft);
+  border: 1.5px dashed var(--line-strong); border-radius: var(--radius);
+  background: var(--surface);
 }
-.empty-title { font-size: 17px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
-.empty p { font-size: 14px; line-height: 1.7; }
+.empty-title { font-family: var(--display); font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.empty p { font-size: 14px; line-height: 1.8; letter-spacing: 0.3px; }
 
 /* ---- Lightbox ---- */
 .lightbox {
   position: fixed; inset: 0; z-index: 100;
-  background: rgba(18, 20, 22, 0.9);
+  background: rgba(32, 30, 26, 0.92);
   display: flex; align-items: center; justify-content: center;
   cursor: zoom-out; padding: 24px;
 }
 .lightbox-inner { cursor: default; max-width: 96vw; max-height: 96vh; display: flex; flex-direction: column; align-items: center; }
-.lightbox-inner img { max-width: 94vw; max-height: 82vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-.lightbox-meta { color: #e7e9ec; margin-top: 12px; font-size: 14px; text-align: center; line-height: 1.6; }
+.lightbox-inner img { max-width: 94vw; max-height: 80vh; border-radius: var(--radius); box-shadow: 0 24px 70px rgba(0,0,0,0.55); }
+.lightbox-meta { color: #d9d3c4; margin-top: 14px; font-size: 14px; text-align: center; line-height: 1.7; letter-spacing: 0.3px; }
 .lightbox-meta strong { color: #fff; }
 
-/* ---- Upload ---- */
+/* ---- 上传 ---- */
 .drop {
-  border: 2px dashed var(--line); border-radius: var(--radius);
-  background: var(--surface); padding: 46px 24px; text-align: center;
+  border: 1.5px dashed var(--line-strong); border-radius: var(--radius);
+  background: var(--surface); padding: 52px 24px; text-align: center;
   transition: border-color 0.15s, background 0.15s;
 }
-.drop:hover, .drop.drag { border-color: var(--accent); background: var(--accent-soft); }
-.drop-label { font-size: 15px; color: var(--ink-soft); }
-.drop-label b { color: var(--accent); }
+.drop:hover, .drop.drag { border-color: var(--vermillion); background: #fbf1e8; }
+.drop-label { font-size: 15px; color: var(--ink-soft); letter-spacing: 0.5px; }
+.drop-label b { color: var(--vermillion); font-weight: 600; }
 .file-pill {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 10px 14px; margin-top: 10px; font-size: 13px;
 }
 
-/* ---- Map overlays ---- */
-.map-chips {
-  position: absolute; top: 68px; left: 16px; z-index: 6;
-  display: flex; flex-direction: column; gap: 8px;
-}
+/* ---- 地图覆盖层：发丝线框小牌 ---- */
+.map-chips { position: absolute; top: 68px; left: 16px; z-index: 6; display: flex; flex-direction: column; gap: 8px; }
 .chip {
-  background: rgba(255,255,255,0.92); backdrop-filter: blur(6px);
-  border: 1px solid var(--line); border-radius: 10px;
-  padding: 8px 12px; font-size: 13px; color: var(--ink); box-shadow: var(--shadow);
+  background: rgba(251, 247, 236, 0.9); backdrop-filter: blur(4px);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 8px 12px; font-size: 13px; letter-spacing: 0.3px; color: var(--ink);
+  box-shadow: var(--shadow);
 }
-.chip b { color: var(--accent); }
+.chip b { color: var(--vermillion); font-weight: 700; }
+
+/* ---- 罗盘（compass rose） ---- */
+.compass {
+  position: absolute; right: 20px; top: 68px; z-index: 6;
+  width: 64px; height: 64px; opacity: 0.9; pointer-events: none;
+}

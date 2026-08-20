@@ -43,6 +43,7 @@ export default function WallPage() {
     <div className="page">
       <div className="page-head">
         <div>
+          <div className="eyebrow">photo log · {place || '全部'}</div>
           <h1 className="page-title">{title}</h1>
           <p className="page-sub">{photos.length} 张照片{place ? ` · 拍摄于 ${place}` : ''}</p>
         </div>

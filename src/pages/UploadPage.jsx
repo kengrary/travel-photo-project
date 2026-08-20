@@ -73,6 +73,7 @@ export default function UploadPage() {
     <div className="page">
       <div className="page-head">
         <div>
+          <div className="eyebrow">add to the atlas</div>
           <h1 className="page-title">上传照片</h1>
           <p className="page-sub">选择照片，自动按 GPS 定位到拍摄的省市县；无法自动定位的可在图上手动点选。</p>
         </div>
