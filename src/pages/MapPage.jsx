@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
+import Supercluster from 'supercluster'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { fetchPhotos } from '../api.js'
 import PhotoPanel from '../components/PhotoPanel.jsx'
@@ -40,12 +41,26 @@ export default function MapPage() {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const readyRef = useRef(false)
+  const clusterRef = useRef(null)
   const [photos, setPhotos] = useState([])
   const [hover, setHover] = useState(null)
   const [selected, setSelected] = useState(null)
   const navigate = useNavigate()
 
-  // 加载照片并在图上打点（仅在 map ready 后调用）
+  // 根据当前视野和缩放，计算聚合点并更新图层数据
+  const updateClusters = useCallback(() => {
+    const map = mapRef.current
+    const cluster = clusterRef.current
+    if (!map || !cluster) return
+    const bbox = map.getBounds().toArray().flat()
+    const zoom = map.getZoom()
+    const clusters = cluster.getClusters(bbox, zoom)
+    if (map.getSource('photo-points')) {
+      map.getSource('photo-points').setData({ type: 'FeatureCollection', features: clusters })
+    }
+  }, [])
+
+  // 加载照片，建立聚合索引
   const loadPhotos = useCallback(async () => {
     const map = mapRef.current
     if (!map) return
@@ -53,52 +68,84 @@ export default function MapPage() {
       const phs = await fetchPhotos().catch(() => [])
       setPhotos(phs)
 
-      const photoPoints = phs
+      const points = phs
         .filter((p) => p.lat != null && p.lng != null)
         .map((p) => ({
           type: 'Feature',
-          properties: { id: p.id, province: p.province, city: p.city, county: p.county, name: p.original_name },
+          properties: {
+            cluster: false,
+            photoId: p.id,
+            province: p.province, city: p.city, county: p.county, name: p.original_name,
+          },
           geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
         }))
+      if (points.length === 0) return
 
-      if (map.getSource('photo-pins')) {
-        map.getSource('photo-pins').setData({ type: 'FeatureCollection', features: photoPoints })
-      } else if (photoPoints.length) {
-        map.addSource('photo-pins', { type: 'geojson', data: { type: 'FeatureCollection', features: photoPoints } })
+      const cluster = new Supercluster({ radius: 50, maxZoom: 16 })
+      cluster.load(points)
+      clusterRef.current = cluster
+
+      if (!map.getSource('photo-points')) {
+        map.addSource('photo-points', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
+        // 聚合圆圈（有 cluster 属性）
         map.addLayer({
-          id: 'photo-pin-halo', type: 'circle', source: 'photo-pins',
+          id: 'cluster-circle', type: 'circle', source: 'photo-points',
+          filter: ['has', 'point_count'],
           paint: {
-            'circle-radius': 14, 'circle-color': 'rgba(200, 67, 47, 0.22)',
-            'circle-stroke-color': '#c8432f', 'circle-stroke-width': 1.5,
+            'circle-radius': 18,
+            'circle-color': 'rgba(200, 67, 47, 0.85)',
+            'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
           },
         })
+        // 聚合数字
         map.addLayer({
-          id: 'photo-pin-dot', type: 'circle', source: 'photo-pins',
-          paint: { 'circle-radius': 7, 'circle-color': '#c8432f' },
+          id: 'cluster-count', type: 'symbol', source: 'photo-points',
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-size': 12,
+            'text-allow-overlap': true,
+          },
+          paint: { 'text-color': '#fff' },
+        })
+        // 单个照片点
+        map.addLayer({
+          id: 'photo-dot', type: 'circle', source: 'photo-points',
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-radius': 7, 'circle-color': '#c8432f',
+            'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
+          },
         })
       }
 
+      updateClusters()
+      map.on('moveend', updateClusters)
+
       if (!map._hasPinClick) {
         map._hasPinClick = true
-        // 点击热区覆盖 halo + dot，圆点更容易点中
-        const pinLayers = ['photo-pin-dot', 'photo-pin-halo']
-        map.on('click', pinLayers, (e) => {
+        // 点击聚合 → 放大到该聚合范围
+        map.on('click', 'cluster-circle', (e) => {
+          const f = e.features[0]
+          const zoom = cluster.getClusterExpansionZoom(f.properties.cluster_id)
+          map.easeTo({ center: f.geometry.coordinates, zoom })
+        })
+        // 点击单个照片点 → 打开照片面板
+        map.on('click', 'photo-dot', (e) => {
           const f = e.features[0].properties
           setSelected({ province: f.province, city: f.city, county: f.county })
         })
-        map.on('mouseenter', pinLayers, () => {
+        map.on('mouseenter', ['cluster-circle', 'photo-dot'], () => {
           map.getCanvas().style.cursor = 'pointer'
-          setHover('查看照片')
         })
-        map.on('mouseleave', pinLayers, () => {
+        map.on('mouseleave', ['cluster-circle', 'photo-dot'], () => {
           map.getCanvas().style.cursor = ''
-          setHover(null)
         })
       }
     } catch (e) {
       console.error('loadPhotos failed', e)
     }
-  }, [])
+  }, [updateClusters])
 
   // 始终指向最新的 loadPhotos，供地图 load 回调调用
   const loadPhotosRef = useRef(loadPhotos)
