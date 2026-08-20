@@ -46,12 +46,14 @@ export default function MapPage() {
         paint: { 'line-color': '#b7a57f', 'line-width': 1 },
       })
       // 中文省份名：用每个省的 center 建独立点源，一个省只标一次
-      // （避免 MultiPolygon 省份在每个子多边形质心重复标名）
-      const labelPoints = geojson.features.map((f) => ({
-        type: 'Feature',
-        properties: { name: f.properties.name },
-        geometry: { type: 'Point', coordinates: f.properties.center },
-      }))
+      // （避免 MultiPolygon 省份在每个子多边形质心重复标名；过滤无 center 的南海诸岛）
+      const labelPoints = geojson.features
+        .filter((f) => f.properties.name && Array.isArray(f.properties.center))
+        .map((f) => ({
+          type: 'Feature',
+          properties: { name: f.properties.name },
+          geometry: { type: 'Point', coordinates: f.properties.center },
+        }))
       map.addSource('province-labels', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: labelPoints },
@@ -61,6 +63,9 @@ export default function MapPage() {
         layout: {
           'text-field': ['get', 'name'],
           'text-size': 12, 'text-letter-spacing': 0.1,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'symbol-avoid-edges': false,
         },
         paint: {
           'text-color': '#5c4a32',
