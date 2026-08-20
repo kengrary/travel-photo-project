@@ -23,7 +23,7 @@ export default function UploadPage() {
       const photos = await uploadPhotos(files)
       setResult(photos)
       // 有未定位照片时，进入手动定位（地图由 useEffect 在容器渲染后创建）
-      const needs = photos.filter((p) => !p.province)
+      const needs = photos.filter((p) => p.id && !p.province)
       if (needs.length) setManualTarget(needs[0])
     } catch (err) {
       alert(`上传失败：${err.message}`)

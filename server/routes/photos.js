@@ -77,6 +77,7 @@ export function photosRouter(db, geo) {
       province = r.province; city = r.city; county = r.county
     }
     const photo = updateLocation(db, req.params.id, { lat, lng, province, city, county, location_name })
+    if (!photo) return res.status(404).json({ error: 'Photo not found' })
     res.json({ photo })
   })
 

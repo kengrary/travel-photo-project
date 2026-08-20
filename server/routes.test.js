@@ -23,7 +23,7 @@ test('GET /api/photos returns empty list', async () => {
 
 test('POST /api/photos/:id/location with no existing photo errors gracefully', async () => {
   const res = await request(app).post('/api/photos/999/location').send({ lat: 23.1, lng: 113.2 })
-  assert.equal(res.status, 200)
+  assert.equal(res.status, 404)
 })
 
 test('GET /api/photos/locations returns array', async () => {
