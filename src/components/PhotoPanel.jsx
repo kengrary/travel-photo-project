@@ -2,31 +2,33 @@ import { useEffect, useState } from 'react'
 import { fetchPhotos, deletePhoto } from '../api.js'
 import PhotoGrid from './PhotoGrid.jsx'
 
-export default function PhotoPanel({ filter, onClose }) {
-  const [photos, setPhotos] = useState([])
+export default function PhotoPanel({ filter, photos, label, onClose }) {
+  const [loadedPhotos, setLoadedPhotos] = useState(null)
   const [collapsed, setCollapsed] = useState(false)
 
+  // 有显式 photos（聚合点传入）则直接用；否则按 filter 拉取
   useEffect(() => {
     let ignore = false
-    if (!filter || !filter.province) { setPhotos([]); return }
-    fetchPhotos(filter).then((p) => { if (!ignore) setPhotos(p) })
+    if (photos) { setLoadedPhotos(photos); return }
+    if (!filter || !filter.province) { setLoadedPhotos(null); return }
+    fetchPhotos(filter).then((p) => { if (!ignore) setLoadedPhotos(p) })
     return () => { ignore = true }
-  }, [filter?.province, filter?.city, filter?.county])
+  }, [photos, filter?.province, filter?.city, filter?.county])
 
-  if (!filter || !filter.province) return null
+  const shown = photos || loadedPhotos || []
+  const place = label || [filter?.province, filter?.city, filter?.county].filter(Boolean).join(' · ')
+  const hasPanel = photos || (filter && filter.province)
+  if (!hasPanel) return null
 
-  const place = [filter.province, filter.city, filter.county].filter(Boolean).join(' · ')
-
-  const handleDeleted = (id) => setPhotos((list) => list.filter((p) => p.id !== id))
+  const handleDeleted = (id) => setLoadedPhotos((list) => (list ? list.filter((p) => p.id !== id) : list))
 
   if (collapsed) {
-    // 竖排空间有限：只显示市+区县，且截断，避免过长换行
-    const shortPlace = [filter.city && filter.city !== filter.province ? filter.city : filter.province, filter.county].filter(Boolean).join(' · ')
-    const clipped = shortPlace.length > 9 ? shortPlace.slice(0, 9) + '…' : shortPlace
+    const shortPlace = place && place.split(' · ').slice(-2).join(' · ')
+    const clipped = shortPlace && shortPlace.length > 9 ? shortPlace.slice(0, 9) + '…' : shortPlace
     return (
       <button className="photo-panel-tab" onClick={() => setCollapsed(false)} title={place}>
         <span className="photo-panel-tab-title">照片</span>
-        <span className="photo-panel-tab-place">{clipped}</span>
+        <span className="photo-panel-tab-place">{clipped || '照片'}</span>
         <span className="photo-panel-tab-arrow">◀</span>
       </button>
     )
@@ -37,7 +39,7 @@ export default function PhotoPanel({ filter, onClose }) {
       <div className="photo-panel-head">
         <div className="photo-panel-title">
           <span className="eyebrow">photos</span>
-          <strong>{place}</strong>
+          <strong>{place || '照片'}</strong>
         </div>
         <div className="panel-actions">
           <button className="panel-toggle" onClick={() => setCollapsed(true)} title="折叠">▶</button>
@@ -45,8 +47,8 @@ export default function PhotoPanel({ filter, onClose }) {
         </div>
       </div>
       <div className="photo-panel-body">
-        <p className="photo-panel-sub">{photos.length} 张照片</p>
-        <PhotoGrid photos={photos} onDelete={deletePhoto} onDeleted={handleDeleted} />
+        <p className="photo-panel-sub">{shown.length} 张照片</p>
+        <PhotoGrid photos={shown} onDelete={deletePhoto} onDeleted={handleDeleted} />
       </div>
     </aside>
   )

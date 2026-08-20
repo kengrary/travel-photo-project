@@ -125,16 +125,18 @@ export default function MapPage() {
 
       if (!map._hasPinClick) {
         map._hasPinClick = true
-        // 点击聚合 → 放大到该聚合范围
+        // 点击聚合 → 打开该聚合点覆盖照片的面板
         map.on('click', 'cluster-circle', (e) => {
           const f = e.features[0]
-          const zoom = cluster.getClusterExpansionZoom(f.properties.cluster_id)
-          map.easeTo({ center: f.geometry.coordinates, zoom })
+          const leaves = cluster.getLeaves(f.properties.cluster_id)
+          const ids = new Set(leaves.map((l) => l.properties.photoId))
+          const fullPhotos = phs.filter((p) => ids.has(p.id))
+          setSelected({ photos: fullPhotos, label: `${fullPhotos.length} 张照片` })
         })
         // 点击单个照片点 → 打开照片面板
         map.on('click', 'photo-dot', (e) => {
           const f = e.features[0].properties
-          setSelected({ province: f.province, city: f.city, county: f.county })
+          setSelected({ filter: { province: f.province, city: f.city, county: f.county } })
         })
         map.on('mouseenter', ['cluster-circle', 'photo-dot'], () => {
           map.getCanvas().style.cursor = 'pointer'
@@ -225,7 +227,12 @@ export default function MapPage() {
         <button className="btn btn-primary" onClick={() => navigate('/upload')}>＋ 上传照片</button>
       </div>
 
-      <PhotoPanel filter={selected} onClose={() => setSelected(null)} />
+      <PhotoPanel
+        filter={selected?.filter}
+        photos={selected?.photos}
+        label={selected?.label}
+        onClose={() => setSelected(null)}
+      />
     </div>
   )
 }
