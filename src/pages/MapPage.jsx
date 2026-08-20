@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { fetchPhotos } from '../api.js'
+import PhotoPanel from '../components/PhotoPanel.jsx'
 
 const CENTER = [104.2, 35.6]
 
@@ -41,15 +42,8 @@ export default function MapPage() {
   const readyRef = useRef(false)
   const [photos, setPhotos] = useState([])
   const [hover, setHover] = useState(null)
+  const [selected, setSelected] = useState(null)
   const navigate = useNavigate()
-
-  const openWall = useCallback((province, city, county) => {
-    const q = new URLSearchParams()
-    if (province) q.set('province', province)
-    if (city && city !== province) q.set('city', city)
-    if (county) q.set('county', county)
-    navigate(`/wall?${q.toString()}`)
-  }, [navigate])
 
   // 加载照片并在图上打点（仅在 map ready 后调用）
   const loadPhotos = useCallback(async () => {
@@ -90,7 +84,7 @@ export default function MapPage() {
         const pinLayers = ['photo-pin-dot', 'photo-pin-halo']
         map.on('click', pinLayers, (e) => {
           const f = e.features[0].properties
-          openWall(f.province, f.city, f.county)
+          setSelected({ province: f.province, city: f.city, county: f.county })
         })
         map.on('mouseenter', pinLayers, () => {
           map.getCanvas().style.cursor = 'pointer'
@@ -104,7 +98,7 @@ export default function MapPage() {
     } catch (e) {
       console.error('loadPhotos failed', e)
     }
-  }, [openWall])
+  }, [])
 
   // 始终指向最新的 loadPhotos，供地图 load 回调调用
   const loadPhotosRef = useRef(loadPhotos)
@@ -182,6 +176,8 @@ export default function MapPage() {
       <div className="fab">
         <button className="btn btn-primary" onClick={() => navigate('/upload')}>＋ 上传照片</button>
       </div>
+
+      <PhotoPanel filter={selected} onClose={() => setSelected(null)} />
     </div>
   )
 }
