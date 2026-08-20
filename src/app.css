@@ -111,6 +111,18 @@ a { text-decoration: none; color: inherit; }
 .page-title { font-family: var(--display); font-size: 28px; font-weight: 700; letter-spacing: 1px; }
 .page-sub { color: var(--ink-soft); font-size: 14px; margin-top: 6px; letter-spacing: 0.3px; }
 
+/* ---- 照片墙分组 ---- */
+.wall-groups { display: flex; flex-direction: column; gap: 28px; }
+.wall-group-head {
+  display: flex; align-items: baseline; gap: 10px;
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.wall-group-title {
+  font-family: var(--display); font-size: 17px; font-weight: 700; letter-spacing: 0.5px;
+}
+.wall-group-sub { font-size: 12px; color: var(--ink-soft); }
+
 /* ---- 照片网格：发丝线框卡片 ---- */
 .photogrid {
   display: grid;
