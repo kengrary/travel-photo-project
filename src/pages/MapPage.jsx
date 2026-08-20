@@ -73,9 +73,15 @@ export default function MapPage() {
         },
       })
 
-      // 图钉：有照片的省份用 vermilion 圆点标出，数量越多越大
+      // 图钉：有照片的省份用 vermilion 圆点标出，数量越多越大。
+      // 用 center 建点源，一个省一个点（避免 MultiPolygon 在每个子多边形质心都画点）
       const pins = geojson.features
-        .map((f) => ({ ...f, properties: { ...f.properties, count: countByProv[f.properties.name] || 0 } }))
+        .filter((f) => f.properties.name && Array.isArray(f.properties.center))
+        .map((f) => ({
+          type: 'Feature',
+          properties: { count: countByProv[f.properties.name] || 0, name: f.properties.name },
+          geometry: { type: 'Point', coordinates: f.properties.center },
+        }))
         .filter((f) => f.properties.count > 0)
       if (pins.length) {
         map.addSource('pins', { type: 'geojson', data: { type: 'FeatureCollection', features: pins } })

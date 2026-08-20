@@ -32,7 +32,10 @@ export function photosRouter(db, geo) {
         const meta = await exifr.parse(file.path, { gps: true, tiff: true })
         const lat = meta?.latitude ?? null
         const lng = meta?.longitude ?? null
-        const takenAt = meta?.DateTimeOriginal ?? null
+        // DateTimeOriginal 可能是 Date 对象，需转成字符串才能写入 SQLite
+        let takenAt = meta?.DateTimeOriginal ?? null
+        if (takenAt instanceof Date) takenAt = takenAt.toISOString()
+        else if (takenAt != null && typeof takenAt !== 'string') takenAt = String(takenAt)
         let province = null, city = null, county = null
         if (lat != null && lng != null) {
           const r = reverseGeocode(geo, lng, lat)
