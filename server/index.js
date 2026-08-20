@@ -3,7 +3,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { openDb } from './db.js'
-import { loadGeoIndex } from './geocode.js'
+import { loadGeoIndex, reverseGeocode } from './geocode.js'
 import { photosRouter } from './routes/photos.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -22,6 +22,17 @@ const geo = loadGeoIndex()
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')))
 app.use('/data', express.static(path.resolve(__dirname, 'data/geojson')))
 app.use('/api/photos', photosRouter(db, geo))
+
+// 逆地理编码：根据经纬度反查省市县
+app.get('/api/geocode/reverse', (req, res) => {
+  const lat = Number(req.query.lat)
+  const lng = Number(req.query.lng)
+  if (Number.isNaN(lat) || Number.isNaN(lng)) {
+    return res.status(400).json({ error: 'Invalid lat/lng' })
+  }
+  const r = reverseGeocode(geo, lng, lat)
+  res.json({ province: r.province, city: r.city, county: r.county })
+})
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }))
 

@@ -15,3 +15,5 @@ export const setPhotoLocation = (id, loc) =>
   fetch(`/api/photos/${id}/location`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loc) }).then(j).then((d) => d.photo)
 export const deletePhoto = (id) =>
   fetch(`/api/photos/${id}`, { method: 'DELETE' }).then(j)
+export const reverseGeocode = (lat, lng) =>
+  fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`).then(j)
