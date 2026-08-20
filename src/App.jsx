@@ -1,6 +1,7 @@
 import { Routes, Route, Link } from 'react-router-dom'
 import MapPage from './pages/MapPage.jsx'
 import WallPage from './pages/WallPage.jsx'
+import UploadPage from './pages/UploadPage.jsx'
 
 export default function App() {
   return (
@@ -13,7 +14,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<MapPage />} />
         <Route path="/wall" element={<WallPage />} />
-        <Route path="/upload" element={<div style={{ paddingTop: 48 }}>上传（待实现）</div>} />
+        <Route path="/upload" element={<UploadPage />} />
       </Routes>
     </div>
   )
