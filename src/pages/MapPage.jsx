@@ -12,7 +12,7 @@ function regionFile(adcode) {
   return `/data/${adcode}_full.json`
 }
 
-// 跨页面导航保留地图状态（view 层级 + 相机位置），避免从照片墙返回时重置
+// 跨页面导航保留地图状态（view 层级 + 相机位置）
 const mapState = {
   view: { level: 'province', adcode: PROVINCE_ADCODE, name: '全国', province: null, city: null, parent: null },
   center: CENTER,
@@ -22,11 +22,11 @@ const mapState = {
 export default function MapPage() {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
+  const readyRef = useRef(false)
+  const viewRef = useRef(mapState.view)
   const [locations, setLocations] = useState([])
   const [photos, setPhotos] = useState([])
   const [hover, setHover] = useState(null)
-  // view: { level, adcode, name, province, city, parent }
-  // level: province | city | county ; parent = 上级 view（用于返回）
   const [view, setView] = useState(mapState.view)
   const navigate = useNavigate()
 
@@ -38,49 +38,18 @@ export default function MapPage() {
     navigate(`/wall?${q.toString()}`)
   }, [navigate])
 
-  // 初始地图（恢复上次的相机位置）
-  useEffect(() => {
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      style: BASE_STYLE,
-      center: mapState.center,
-      zoom: mapState.zoom,
-      attributionControl: false,
-    })
-    mapRef.current = map
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
-    map.on('moveend', () => {
-      const c = map.getCenter()
-      mapState.center = [c.lng, c.lat]
-      mapState.zoom = map.getZoom()
-    })
-    return () => map.remove()
-  }, [])
-
-  // 持久化当前 view，跨导航保留下钻层级
-  useEffect(() => {
-    mapState.view = view
-  }, [view])
-
-  // 加载当前层级边界 + 照片点
-  useEffect(() => {
+  // 加载/更新当前层级边界 + 照片点（仅在 map ready 后调用）
+  const loadRegion = useCallback(async (v) => {
     const map = mapRef.current
     if (!map) return
-    let cancelled = false
-
-    async function load() {
-      if (cancelled) return
-      let locs = []
-      let phs = []
-      try { locs = await fetchLocations() } catch {}
-      try { phs = await fetchPhotos() } catch {}
-      if (cancelled) return
+    try {
+      const [geojson, phs, locs] = await Promise.all([
+        fetch(regionFile(v.adcode)).then((r) => r.json()),
+        fetchPhotos().catch(() => []),
+        fetchLocations().catch(() => []),
+      ])
       setLocations(locs)
       setPhotos(phs)
-
-      const res = await fetch(regionFile(view.adcode))
-      const geojson = await res.json()
-      if (cancelled) return
 
       const photoPoints = phs
         .filter((p) => p.lat != null && p.lng != null)
@@ -104,6 +73,7 @@ export default function MapPage() {
         })
       }
 
+      // 区名标签（用 center 点源，避免 MultiPolygon 重复标名）
       const labelPoints = geojson.features
         .filter((f) => f.properties.name && Array.isArray(f.properties.center))
         .map((f) => ({
@@ -119,10 +89,10 @@ export default function MapPage() {
           id: 'region-label', type: 'symbol', source: 'region-labels',
           layout: {
             'text-field': ['get', 'name'],
-            'text-size': view.level === 'province' ? 12 : 10.5,
+            'text-size': v.level === 'province' ? 12 : 10.5,
             'text-letter-spacing': 0.05,
-            'text-allow-overlap': false,
-            'text-ignore-placement': false,
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
           },
           paint: {
             'text-color': '#5c4a32',
@@ -131,6 +101,7 @@ export default function MapPage() {
         })
       }
 
+      // 照片点
       if (map.getSource('photo-pins')) {
         map.getSource('photo-pins').setData({ type: 'FeatureCollection', features: photoPoints })
       } else if (photoPoints.length) {
@@ -148,9 +119,10 @@ export default function MapPage() {
         })
       }
 
+      // 交互（只绑定一次）
       if (!map._hasRegionClick) {
         map._hasRegionClick = true
-        map.on('click', 'region-fill', (e) => drill(e.features[0].properties))
+        map.on('click', 'region-fill', (e) => drillRef.current(e.features[0].properties))
         map.on('mouseenter', 'region-fill', (e) => {
           map.getCanvas().style.cursor = 'pointer'
           setHover(e.features[0].properties.name)
@@ -166,43 +138,87 @@ export default function MapPage() {
         map.on('mouseenter', 'photo-pin-dot', () => (map.getCanvas().style.cursor = 'pointer'))
         map.on('mouseleave', 'photo-pin-dot', () => (map.getCanvas().style.cursor = ''))
       }
+    } catch (e) {
+      console.error('loadRegion failed', e)
     }
+  }, [navigate, openWall])
 
-    // 下钻：进入某区域下一级，或进照片墙
-    function drill(props) {
-      const level = props.level // province / city / district
-      const name = props.name
-      const adcode = String(props.adcode)
-      const childrenNum = props.childrenNum || 0
+  // 下钻逻辑通过 ref 引用，避免 stale closure
+  const drillRef = useRef(null)
+  drillRef.current = (props) => {
+    const map = mapRef.current
+    const current = viewRef.current
+    const level = props.level
+    const name = props.name
+    const adcode = String(props.adcode)
+    const childrenNum = props.childrenNum || 0
 
-      if (level === 'province' && childrenNum > 0) {
-        setView({ level: 'city', adcode, name, province: name, city: null, parent: view })
-      } else if (level === 'city' && childrenNum > 0) {
-        setView({ level: 'county', adcode, name, province: view.province, city: name, parent: view })
-      } else {
-        // district：进照片墙（直辖市下也是 district，city 为空时仅按省+区县过滤）
-        openWall(view.province, view.city, name)
+    if (level === 'province' && childrenNum > 0) {
+      setView({ level: 'city', adcode, name, province: name, city: null, parent: current })
+    } else if (level === 'city' && childrenNum > 0) {
+      setView({ level: 'county', adcode, name, province: current.province, city: name, parent: current })
+    } else {
+      openWall(current.province, current.city, name)
+    }
+    zoomTo(adcode)
+  }
+
+  // 初始地图：在 load 事件后确保 ready，再加载第一层数据
+  useEffect(() => {
+    const map = new maplibregl.Map({
+      container: containerRef.current,
+      style: BASE_STYLE,
+      center: mapState.center,
+      zoom: mapState.zoom,
+      attributionControl: false,
+    })
+    mapRef.current = map
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
+    map.on('moveend', () => {
+      const c = map.getCenter()
+      mapState.center = [c.lng, c.lat]
+      mapState.zoom = map.getZoom()
+    })
+    map.on('load', () => {
+      readyRef.current = true
+      loadRegion(viewRef.current)
+    })
+    return () => map.remove()
+  }, [loadRegion])
+
+  // view 变化：更新 ref，若地图已 ready 则重载该层级
+  useEffect(() => {
+    viewRef.current = view
+    mapState.view = view
+    if (readyRef.current && mapRef.current) {
+      loadRegion(view)
+    }
+  }, [view, loadRegion])
+
+  // 保存当前相机位置到 mapState（挂载时恢复）
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        const c = mapRef.current.getCenter()
+        mapState.center = [c.lng, c.lat]
+        mapState.zoom = mapRef.current.getZoom()
       }
-      zoomTo(adcode)
     }
+  }, [])
 
-    function zoomTo(adcode) {
-      fetch(regionFile(adcode)).then((r) => r.json()).then((fc) => {
-        const bounds = new maplibregl.LngLatBounds()
-        const walk = (coords) => {
-          if (typeof coords[0] === 'number') bounds.extend([coords[0], coords[1]])
-          else coords.forEach(walk)
-        }
-        fc.features.forEach((f) => walk(f.geometry.coordinates))
-        if (!bounds.isEmpty() && mapRef.current) {
-          mapRef.current.fitBounds(bounds, { padding: 60, maxZoom: 10, duration: 600 })
-        }
-      }).catch(() => {})
-    }
-
-    load()
-    return () => { cancelled = true }
-  }, [view, navigate, openWall])
+  function zoomTo(adcode) {
+    fetch(regionFile(adcode)).then((r) => r.json()).then((fc) => {
+      const bounds = new maplibregl.LngLatBounds()
+      const walk = (coords) => {
+        if (typeof coords[0] === 'number') bounds.extend([coords[0], coords[1]])
+        else coords.forEach(walk)
+      }
+      fc.features.forEach((f) => walk(f.geometry.coordinates))
+      if (!bounds.isEmpty() && mapRef.current) {
+        mapRef.current.fitBounds(bounds, { padding: 60, maxZoom: 10, duration: 600 })
+      }
+    }).catch(() => {})
+  }
 
   const total = photos.filter((p) => p.lat != null).length
   const visited = new Set(photos.map((p) => p.province)).size
