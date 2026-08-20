@@ -2,19 +2,35 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { fetchLocations, fetchPhotos } from '../api.js'
+import { fetchPhotos } from '../api.js'
 
 const CENTER = [104.2, 35.6]
-const BASE_STYLE = 'https://demotiles.maplibre.org/style.json'
-const PROVINCE_ADCODE = '100000'
 
-function regionFile(adcode) {
-  return `/data/${adcode}_full.json`
+// 高德中文栅格瓦片（自带全部中国省市县/街道中文地名与边界）
+const GAODE_TILES = [
+  'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+  'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+  'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+  'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+]
+const GAODE_STYLE = {
+  version: 8,
+  sources: {
+    gaode: {
+      type: 'raster',
+      tiles: GAODE_TILES,
+      tileSize: 256,
+      maxzoom: 18,
+      attribution: '© 高德地图',
+    },
+  },
+  layers: [
+    { id: 'gaode-base', type: 'raster', source: 'gaode' },
+  ],
 }
 
-// 跨页面导航保留地图状态（view 层级 + 相机位置）
+// 跨页面导航保留相机位置（从照片墙返回不重置）
 const mapState = {
-  view: { level: 'province', adcode: PROVINCE_ADCODE, name: '全国', province: null, city: null, parent: null },
   center: CENTER,
   zoom: 3.3,
 }
@@ -23,11 +39,8 @@ export default function MapPage() {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const readyRef = useRef(false)
-  const viewRef = useRef(mapState.view)
-  const [locations, setLocations] = useState([])
   const [photos, setPhotos] = useState([])
   const [hover, setHover] = useState(null)
-  const [view, setView] = useState(mapState.view)
   const navigate = useNavigate()
 
   const openWall = useCallback((province, city, county) => {
@@ -38,17 +51,12 @@ export default function MapPage() {
     navigate(`/wall?${q.toString()}`)
   }, [navigate])
 
-  // 加载/更新当前层级边界 + 照片点（仅在 map ready 后调用）
-  const loadRegion = useCallback(async (v) => {
+  // 加载照片并在图上打点（仅在 map ready 后调用）
+  const loadPhotos = useCallback(async () => {
     const map = mapRef.current
     if (!map) return
     try {
-      const [geojson, phs, locs] = await Promise.all([
-        fetch(regionFile(v.adcode)).then((r) => r.json()),
-        fetchPhotos().catch(() => []),
-        fetchLocations().catch(() => []),
-      ])
-      setLocations(locs)
+      const phs = await fetchPhotos().catch(() => [])
       setPhotos(phs)
 
       const photoPoints = phs
@@ -59,49 +67,6 @@ export default function MapPage() {
           geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
         }))
 
-      if (map.getSource('regions')) {
-        map.getSource('regions').setData(geojson)
-      } else {
-        map.addSource('regions', { type: 'geojson', data: geojson })
-        map.addLayer({
-          id: 'region-fill', type: 'fill', source: 'regions',
-          paint: { 'fill-color': '#efe6d2', 'fill-opacity': 0.75, 'fill-outline-color': '#d8c9ac' },
-        })
-        map.addLayer({
-          id: 'region-line', type: 'line', source: 'regions',
-          paint: { 'line-color': '#b7a57f', 'line-width': 1 },
-        })
-      }
-
-      // 区名标签（用 center 点源，避免 MultiPolygon 重复标名）
-      const labelPoints = geojson.features
-        .filter((f) => f.properties.name && Array.isArray(f.properties.center))
-        .map((f) => ({
-          type: 'Feature',
-          properties: { name: f.properties.name },
-          geometry: { type: 'Point', coordinates: f.properties.center },
-        }))
-      if (map.getSource('region-labels')) {
-        map.getSource('region-labels').setData({ type: 'FeatureCollection', features: labelPoints })
-      } else {
-        map.addSource('region-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: labelPoints } })
-        map.addLayer({
-          id: 'region-label', type: 'symbol', source: 'region-labels',
-          layout: {
-            'text-field': ['get', 'name'],
-            'text-size': v.level === 'province' ? 12 : 10.5,
-            'text-letter-spacing': 0.05,
-            'text-allow-overlap': true,
-            'text-ignore-placement': true,
-          },
-          paint: {
-            'text-color': '#5c4a32',
-            'text-halo-color': '#f7efdd', 'text-halo-width': 1.6,
-          },
-        })
-      }
-
-      // 照片点
       if (map.getSource('photo-pins')) {
         map.getSource('photo-pins').setData({ type: 'FeatureCollection', features: photoPoints })
       } else if (photoPoints.length) {
@@ -109,7 +74,7 @@ export default function MapPage() {
         map.addLayer({
           id: 'photo-pin-halo', type: 'circle', source: 'photo-pins',
           paint: {
-            'circle-radius': 10, 'circle-color': 'rgba(200, 67, 47, 0.18)',
+            'circle-radius': 10, 'circle-color': 'rgba(200, 67, 47, 0.22)',
             'circle-stroke-color': '#c8432f', 'circle-stroke-width': 1.5,
           },
         })
@@ -119,66 +84,38 @@ export default function MapPage() {
         })
       }
 
-      // 交互（只绑定一次）
-      if (!map._hasRegionClick) {
-        map._hasRegionClick = true
-        map.on('click', 'region-fill', (e) => {
-          // 若点击点落在照片点上，交给照片点处理器导航，避免重复触发下钻+跳转
-          if (map.queryRenderedFeatures(e.point, { layers: ['photo-pin-dot'] }).length > 0) return
-          drillRef.current(e.features[0].properties)
-        })
-        map.on('mouseenter', 'region-fill', (e) => {
-          map.getCanvas().style.cursor = 'pointer'
-          setHover(e.features[0].properties.name)
-        })
-        map.on('mouseleave', 'region-fill', () => {
-          map.getCanvas().style.cursor = ''
-          setHover(null)
-        })
+      if (!map._hasPinClick) {
+        map._hasPinClick = true
         map.on('click', 'photo-pin-dot', (e) => {
           const f = e.features[0].properties
           openWall(f.province, f.city, f.county)
         })
-        map.on('mouseenter', 'photo-pin-dot', () => (map.getCanvas().style.cursor = 'pointer'))
-        map.on('mouseleave', 'photo-pin-dot', () => (map.getCanvas().style.cursor = ''))
+        map.on('mouseenter', 'photo-pin-dot', () => {
+          map.getCanvas().style.cursor = 'pointer'
+          setHover('查看照片')
+        })
+        map.on('mouseleave', 'photo-pin-dot', () => {
+          map.getCanvas().style.cursor = ''
+          setHover(null)
+        })
       }
     } catch (e) {
-      console.error('loadRegion failed', e)
+      console.error('loadPhotos failed', e)
     }
-  }, [navigate, openWall])
+  }, [openWall])
 
-  // 始终指向最新的 loadRegion，供地图 load 回调与 view 变化时调用，避免身份变化触发重建
-  const loadRegionRef = useRef(loadRegion)
-  loadRegionRef.current = loadRegion
+  // 始终指向最新的 loadPhotos，供地图 load 回调调用
+  const loadPhotosRef = useRef(loadPhotos)
+  loadPhotosRef.current = loadPhotos
 
-  // 下钻逻辑通过 ref 引用，避免 stale closure
-  const drillRef = useRef(null)
-  drillRef.current = (props) => {
-    const map = mapRef.current
-    const current = viewRef.current
-    const level = props.level
-    const name = props.name
-    const adcode = String(props.adcode)
-    const childrenNum = props.childrenNum || 0
-
-    if (level === 'province' && childrenNum > 0) {
-      setView({ level: 'city', adcode, name, province: name, city: null, parent: current })
-    } else if (level === 'city' && childrenNum > 0) {
-      setView({ level: 'county', adcode, name, province: current.province, city: name, parent: current })
-    } else {
-      openWall(current.province, current.city, name)
-    }
-    zoomTo(adcode)
-  }
-
-  // 初始地图：只创建一次，绝不因 loadRegion 身份变化而重建
+  // 初始地图：只创建一次，底图为高德中文瓦片
   useEffect(() => {
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: BASE_STYLE,
+      style: GAODE_STYLE,
       center: mapState.center,
       zoom: mapState.zoom,
-      attributionControl: false,
+      attributionControl: true,
     })
     mapRef.current = map
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
@@ -189,20 +126,11 @@ export default function MapPage() {
     })
     map.on('load', () => {
       readyRef.current = true
-      loadRegionRef.current(viewRef.current)
+      loadPhotosRef.current()
     })
     return () => map.remove()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // view 变化：更新 ref，若地图已 ready 则重载该层级
-  useEffect(() => {
-    viewRef.current = view
-    mapState.view = view
-    if (readyRef.current && mapRef.current) {
-      loadRegionRef.current(view)
-    }
-  }, [view])
 
   // 保存当前相机位置到 mapState（挂载时恢复）
   useEffect(() => {
@@ -215,26 +143,8 @@ export default function MapPage() {
     }
   }, [])
 
-  function zoomTo(adcode) {
-    fetch(regionFile(adcode)).then((r) => r.json()).then((fc) => {
-      const bounds = new maplibregl.LngLatBounds()
-      const walk = (coords) => {
-        if (typeof coords[0] === 'number') bounds.extend([coords[0], coords[1]])
-        else coords.forEach(walk)
-      }
-      fc.features.forEach((f) => walk(f.geometry.coordinates))
-      if (!bounds.isEmpty() && mapRef.current) {
-        mapRef.current.fitBounds(bounds, { padding: 60, maxZoom: 10, duration: 600 })
-      }
-    }).catch(() => {})
-  }
-
   const total = photos.filter((p) => p.lat != null).length
   const visited = new Set(photos.map((p) => p.province)).size
-
-  const back = () => {
-    if (view.parent) setView(view.parent)
-  }
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
@@ -262,12 +172,9 @@ export default function MapPage() {
 
       <div className="map-chips">
         <div className="chip">
-          <b>{view.name}</b> · 已访 <b>{visited}</b> 省 · 照片 <b>{total}</b> 张
-          {view.level !== 'province' && (
-            <button onClick={back} style={{ marginLeft: 10, border: '1px solid var(--line-strong)', background: 'transparent', borderRadius: 4, padding: '2px 8px', fontSize: 12, cursor: 'pointer' }}>← 返回</button>
-          )}
+          已访 <b>{visited}</b> 省 · 照片 <b>{total}</b> 张
+          {hover && <span style={{ marginLeft: 10 }}>↳ <b style={{ color: 'var(--vermillion)' }}>{hover}</b></span>}
         </div>
-        {hover && <div className="chip">↳ {hover}（点击进入下一级）</div>}
       </div>
 
       <div className="fab">
