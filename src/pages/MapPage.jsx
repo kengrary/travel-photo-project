@@ -122,7 +122,11 @@ export default function MapPage() {
       // 交互（只绑定一次）
       if (!map._hasRegionClick) {
         map._hasRegionClick = true
-        map.on('click', 'region-fill', (e) => drillRef.current(e.features[0].properties))
+        map.on('click', 'region-fill', (e) => {
+          // 若点击点落在照片点上，交给照片点处理器导航，避免重复触发下钻+跳转
+          if (map.queryRenderedFeatures(e.point, { layers: ['photo-pin-dot'] }).length > 0) return
+          drillRef.current(e.features[0].properties)
+        })
         map.on('mouseenter', 'region-fill', (e) => {
           map.getCanvas().style.cursor = 'pointer'
           setHover(e.features[0].properties.name)
@@ -142,6 +146,10 @@ export default function MapPage() {
       console.error('loadRegion failed', e)
     }
   }, [navigate, openWall])
+
+  // 始终指向最新的 loadRegion，供地图 load 回调与 view 变化时调用，避免身份变化触发重建
+  const loadRegionRef = useRef(loadRegion)
+  loadRegionRef.current = loadRegion
 
   // 下钻逻辑通过 ref 引用，避免 stale closure
   const drillRef = useRef(null)
@@ -163,7 +171,7 @@ export default function MapPage() {
     zoomTo(adcode)
   }
 
-  // 初始地图：在 load 事件后确保 ready，再加载第一层数据
+  // 初始地图：只创建一次，绝不因 loadRegion 身份变化而重建
   useEffect(() => {
     const map = new maplibregl.Map({
       container: containerRef.current,
@@ -181,19 +189,20 @@ export default function MapPage() {
     })
     map.on('load', () => {
       readyRef.current = true
-      loadRegion(viewRef.current)
+      loadRegionRef.current(viewRef.current)
     })
     return () => map.remove()
-  }, [loadRegion])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // view 变化：更新 ref，若地图已 ready 则重载该层级
   useEffect(() => {
     viewRef.current = view
     mapState.view = view
     if (readyRef.current && mapRef.current) {
-      loadRegion(view)
+      loadRegionRef.current(view)
     }
-  }, [view, loadRegion])
+  }, [view])
 
   // 保存当前相机位置到 mapState（挂载时恢复）
   useEffect(() => {
