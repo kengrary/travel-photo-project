@@ -126,6 +126,18 @@ a { text-decoration: none; color: inherit; }
 }
 .photo-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--line-strong); }
 .photo-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+
+/* 垃圾桶删除按钮（右上角，悬浮显示） */
+.photo-delete {
+  position: absolute; top: 8px; right: 8px; z-index: 2;
+  width: 30px; height: 30px; border: none; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92); color: #c0392b;
+  font-size: 15px; line-height: 1; cursor: pointer;
+  opacity: 0; transition: opacity 0.15s, background 0.15s, transform 0.15s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.photo-card:hover .photo-delete { opacity: 1; }
+.photo-delete:hover { background: #c0392b; color: #fff; transform: scale(1.1); }
 .photo-cap {
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: 28px 10px 9px; font-size: 12px; letter-spacing: 0.3px; color: #fbf7ec;

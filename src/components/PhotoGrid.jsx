@@ -21,6 +21,14 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted }) {
     }
   }
 
+  const handleDeleteClick = (e, photo) => {
+    e.stopPropagation()
+    if (!onDelete) return
+    if (window.confirm(`确定删除这张照片「${photo.original_name}」吗？此操作不可恢复。`)) {
+      handleDelete(photo)
+    }
+  }
+
   return (
     <>
       {photos.length === 0 ? (
@@ -38,6 +46,16 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted }) {
               <div className="photo-cap">
                 {[p.province, p.city, p.county].filter(Boolean).join(' ') || p.original_name}
               </div>
+              {onDelete && (
+                <button
+                  className="photo-delete"
+                  title="删除照片"
+                  aria-label="删除照片"
+                  onClick={(e) => handleDeleteClick(e, p)}
+                >
+                  🗑
+                </button>
+              )}
             </div>
           ))}
         </div>
