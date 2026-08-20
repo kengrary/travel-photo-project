@@ -1,12 +1,19 @@
 import express from 'express'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { openDb } from './db.js'
+import { loadGeoIndex } from './geocode.js'
+import { photosRouter } from './routes/photos.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 app.use(express.json())
 
-app.get('/api/health', (req, res) => res.json({ ok: true }))
+const db = openDb()
+const geo = loadGeoIndex()
+
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')))
+app.use('/api/photos', photosRouter(db, geo))
 
 const distDir = path.resolve(__dirname, '../dist')
 app.use(express.static(distDir))

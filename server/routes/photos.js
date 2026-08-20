@@ -1,0 +1,66 @@
+import { Router } from 'express'
+import exifr from 'exifr'
+import path from 'node:path'
+import { insertPhoto, listPhotos, countByLocation, updateLocation } from '../db.js'
+import { upload, makeThumb } from '../upload.js'
+import { reverseGeocode } from '../geocode.js'
+
+export function photosRouter(db, geo) {
+  const router = Router()
+
+  router.post('/', upload.array('photos', 50), async (req, res) => {
+    const results = []
+    for (const file of req.files) {
+      try {
+        const meta = await exifr.parse(file.path, { gps: true, tiff: true })
+        const lat = meta?.latitude ?? null
+        const lng = meta?.longitude ?? null
+        const takenAt = meta?.DateTimeOriginal ?? null
+        let province = null, city = null, county = null
+        if (lat != null && lng != null) {
+          const r = reverseGeocode(geo, lng, lat)
+          province = r.province; city = r.city; county = r.county
+        }
+        const thumbPath = await makeThumb(file.filename)
+        const photo = insertPhoto(db, {
+          filename: file.filename,
+          original_name: file.originalname,
+          thumb_path: thumbPath,
+          taken_at: takenAt,
+          lat, lng, province, city, county,
+          location_name: null,
+          created_at: new Date().toISOString(),
+        })
+        results.push(photo)
+      } catch (e) {
+        results.push({ error: e.message, filename: file.filename })
+      }
+    }
+    res.json({ photos: results })
+  })
+
+  router.get('/', (req, res) => {
+    const filter = {
+      province: req.query.province, city: req.query.city, county: req.query.county,
+      orderBy: req.query.orderBy,
+    }
+    res.json({ photos: listPhotos(db, filter) })
+  })
+
+  router.get('/locations', (req, res) => {
+    res.json({ locations: countByLocation(db) })
+  })
+
+  router.post('/:id/location', (req, res) => {
+    const { lat, lng, location_name } = req.body
+    let province = null, city = null, county = null
+    if (lat != null && lng != null) {
+      const r = reverseGeocode(geo, lng, lat)
+      province = r.province; city = r.city; county = r.county
+    }
+    const photo = updateLocation(db, req.params.id, { lat, lng, province, city, county, location_name })
+    res.json({ photo })
+  })
+
+  return router
+}
