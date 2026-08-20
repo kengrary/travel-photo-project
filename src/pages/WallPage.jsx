@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { fetchPhotos } from '../api.js'
 
+function fmtTime(t) {
+  if (!t) return '未知时间'
+  const d = new Date(t)
+  if (isNaN(d)) return '未知时间'
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+
 export default function WallPage() {
   const [params] = useSearchParams()
   const [photos, setPhotos] = useState([])
@@ -16,48 +23,67 @@ export default function WallPage() {
   }
 
   useEffect(() => {
-    fetchPhotos(filter).then(setPhotos)
+    let ignore = false
+    fetchPhotos(filter).then((p) => { if (!ignore) setPhotos(p) })
+    return () => { ignore = true }
   }, [params.toString(), orderBy])
 
-  const title = [filter.province, filter.city, filter.county].filter(Boolean).join(' · ') || '全部照片'
+  useEffect(() => {
+    if (!lightbox) return
+    const onKey = (e) => { if (e.key === 'Escape') setLightbox(null) }
+    window.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
+  }, [lightbox])
+
+  const place = [filter.province, filter.city, filter.county].filter(Boolean).join(' · ')
+  const title = place || '全部照片'
 
   return (
-    <div style={{ paddingTop: 48, paddingBottom: 24 }}>
-      <h2 style={{ padding: '0 16px' }}>{title}</h2>
-      <div style={{ padding: '0 16px', display: 'flex', gap: 8, margin: '12px 0' }}>
-        <button onClick={() => setOrderBy('time')} style={orderBy === 'time' ? active : {}}>按时间</button>
-        <button onClick={() => setOrderBy('location')} style={orderBy === 'location' ? active : {}}>按地点</button>
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <h1 className="page-title">{title}</h1>
+          <p className="page-sub">{photos.length} 张照片{place ? ` · 拍摄于 ${place}` : ''}</p>
+        </div>
+        <div className="seg">
+          <button className={orderBy === 'time' ? 'on' : ''} onClick={() => setOrderBy('time')}>按时间</button>
+          <button className={orderBy === 'location' ? 'on' : ''} onClick={() => setOrderBy('location')}>按地点</button>
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8, padding: 16 }}>
-        {photos.map((p) => (
-          <img
-            key={p.id}
-            src={`/uploads/${p.thumb_path}`}
-            alt={p.original_name}
-            onClick={() => setLightbox(p)}
-            style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', cursor: 'pointer', borderRadius: 6 }}
-          />
-        ))}
-      </div>
-      {photos.length === 0 && <p style={{ padding: '0 16px', color: '#888' }}>暂无照片</p>}
+
+      {photos.length === 0 ? (
+        <div className="empty">
+          <div className="empty-title">这里还没有照片</div>
+          <p>上传几张带位置的旅行照片，它们就会出现在这里。<br />到「上传」页选择照片，自动定位到拍摄的省市县。</p>
+        </div>
+      ) : (
+        <div className="photogrid">
+          {photos.map((p) => (
+            <div key={p.id} className="photo-card" onClick={() => setLightbox(p)}>
+              <img src={`/uploads/${p.thumb_path}`} alt={p.original_name} loading="lazy" />
+              <div className="photo-cap">
+                {[p.province, p.city, p.county].filter(Boolean).join(' ') || p.original_name}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {lightbox && (
-        <div onClick={() => setLightbox(null)} style={overlay}>
-          <div onClick={(e) => e.stopPropagation()}>
-            <img src={`/uploads/${lightbox.filename}`} style={{ maxWidth: '90vw', maxHeight: '80vh' }} />
-            <p style={{ color: '#fff', marginTop: 8 }}>
-              {lightbox.original_name} · {lightbox.taken_at || '未知时间'} ·{' '}
+        <div className="lightbox" onClick={() => setLightbox(null)}>
+          <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
+            <img src={`/uploads/${lightbox.filename}`} alt={lightbox.original_name} />
+            <div className="lightbox-meta">
+              <strong>{lightbox.original_name}</strong><br />
+              {fmtTime(lightbox.taken_at)}
+              {' · '}
               {[lightbox.province, lightbox.city, lightbox.county].filter(Boolean).join(' ') || '未知地点'}
               {lightbox.location_name ? ` · ${lightbox.location_name}` : ''}
-            </p>
+            </div>
           </div>
         </div>
       )}
     </div>
   )
-}
-
-const active = { fontWeight: 'bold', borderBottom: '2px solid #333' }
-const overlay = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', zIndex: 100,
 }

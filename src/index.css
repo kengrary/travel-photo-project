@@ -1,3 +1,1 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body, #root { height: 100%; }
-body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6f8; }
+/* 基础样式统一在 app.css 中管理 */
