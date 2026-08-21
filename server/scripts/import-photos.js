@@ -40,13 +40,17 @@ async function main() {
   // 过滤参数
   const includeProvinces = new Set()
   const excludeProvinces = new Set()
+  const excludeCities = new Set()
   let onlyNoLocation = false
+  let onlyWithMeta = false
   const includeExts = new Set()
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     if (a === '--include-province' && args[i + 1]) { includeProvinces.add(args[++i]); }
     if (a === '--exclude-province' && args[i + 1]) { excludeProvinces.add(args[++i]); }
+    if (a === '--exclude-city' && args[i + 1]) { excludeCities.add(args[++i]); }
     if (a === '--no-location') onlyNoLocation = true
+    if (a === '--with-meta') onlyWithMeta = true
     if (a === '--ext' && args[i + 1]) {
       // 支持逗号分隔的多个扩展名，如 --ext heic,jpg
       for (const e of args[++i].split(',')) if (e) includeExts.add(e.trim().replace(/^\./, '').toLowerCase())
@@ -54,7 +58,7 @@ async function main() {
   }
 
   if (!dirArg) {
-    console.error('用法: node server/scripts/import-photos.js <照片目录> [--dry-run] [--include-province 广东省] [--exclude-province 广东省] [--no-location] [--ext heic,jpg]')
+    console.error('用法: node server/scripts/import-photos.js <照片目录> [--dry-run] [--include-province 广东省] [--exclude-province 广东省] [--exclude-city 佛山市] [--no-location] [--with-meta] [--ext heic,jpg]')
     process.exit(1)
   }
   const srcDir = path.resolve(dirArg)
@@ -73,7 +77,9 @@ async function main() {
   console.log(`扫描到 ${images.length} 张图片（${srcDir}）`)
   if (includeProvinces.size) console.log(`过滤：仅导入 ${[...includeProvinces].join('、')}`)
   if (excludeProvinces.size) console.log(`过滤：排除 ${[...excludeProvinces].join('、')}`)
+  if (excludeCities.size) console.log(`过滤：排除城市 ${[...excludeCities].join('、')}`)
   if (onlyNoLocation) console.log('过滤：仅导入无位置照片')
+  if (onlyWithMeta) console.log('过滤：跳过无时间且无位置的照片')
   if (includeExts.size) console.log(`过滤：仅导入 ${[...includeExts].join(', ')} 格式`)
 
   let ok = 0, skipped = 0, failed = 0, filtered = 0
@@ -109,10 +115,14 @@ async function main() {
         province = r.province; city = r.city; county = r.county
       }
 
-      // 过滤：根据反查到的省份决定是否导入
-      if (onlyNoLocation && province) { if (!dryRun) { try { fs.unlinkSync(dest) } catch {} } filtered++; continue }
-      if (includeProvinces.size && !(province && includeProvinces.has(province))) { if (!dryRun) { try { fs.unlinkSync(dest) } catch {} } filtered++; continue }
-      if (excludeProvinces.size && province && excludeProvinces.has(province)) { if (!dryRun) { try { fs.unlinkSync(dest) } catch {} } filtered++; continue }
+      // 过滤：根据反查到的省份/城市决定是否导入
+      const skipFile = () => { if (!dryRun) { try { fs.unlinkSync(dest) } catch {} } }
+      if (onlyNoLocation && province) { skipFile(); filtered++; continue }
+      if (includeProvinces.size && !(province && includeProvinces.has(province))) { skipFile(); filtered++; continue }
+      if (excludeProvinces.size && province && excludeProvinces.has(province)) { skipFile(); filtered++; continue }
+      if (excludeCities.size && city && excludeCities.has(city)) { skipFile(); filtered++; continue }
+      // 跳过既无时间也无位置的照片
+      if (onlyWithMeta && !province && !takenAt) { skipFile(); filtered++; continue }
 
       let thumb = null, full = null
       if (!dryRun) {
