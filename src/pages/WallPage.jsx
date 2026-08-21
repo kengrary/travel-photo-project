@@ -18,6 +18,9 @@ function monthValue(key) {
   return `${y}-${String(m).padStart(2, '0')}-01T12:00:00Z`
 }
 
+// 统计列表里的视频数量
+const countVideos = (list) => list.reduce((n, p) => n + (p.media_type === 'video' ? 1 : 0), 0)
+
 export default function WallPage() {
   const [params] = useSearchParams()
   const [photos, setPhotos] = useState([])
@@ -158,7 +161,7 @@ export default function WallPage() {
                 <header className="wall-group-head">
                   <h2 className="wall-group-title">{g.label}</h2>
                   <span className="wall-group-sub">
-                    {g.photos.length} 张照片{locDroppable && !g.province ? ' · 可拖入照片补充位置' : ''}
+                    {g.photos.length} 张照片{countVideos(g.photos) > 0 ? ` · ${countVideos(g.photos)} 个视频` : ''}{locDroppable && !g.province ? ' · 可拖入照片补充位置' : ''}
                   </span>
                 </header>
                 {g.sub.map((sub) => {
@@ -175,7 +178,7 @@ export default function WallPage() {
                     >
                       <h3 className="wall-subgroup-title">
                         {sub.label}
-                        <span className="wall-group-sub"> {sub.photos.length} 张</span>
+                        <span className="wall-group-sub"> {sub.photos.length} 张{countVideos(sub.photos) > 0 ? ` · ${countVideos(sub.photos)} 视频` : ''}</span>
                       </h3>
                       <PhotoGrid
                         photos={sub.photos}
