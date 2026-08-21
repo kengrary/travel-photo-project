@@ -38,24 +38,22 @@ const mapState = {
   zoom: 3.3,
 }
 
-// 用 canvas 生成图钉(teardrop)图片，注册为 MapLibre 图标
+// 用 canvas 生成图钉(teardrop)图片：上部半圆帽 + 底部尖端，注册为 MapLibre 图标
 function createPinImage() {
   const w = 44, h = 56
+  const cx = w / 2, r = 17, capY = 19
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d')
-  // 图钉：上部圆 + 尖端向下（teardrop）
   ctx.beginPath()
-  ctx.moveTo(w / 2, h)                       // 尖端
-  ctx.bezierCurveTo(w * 0.12, h * 0.72, 0, h * 0.44, w / 2, h * 0.12)
-  ctx.bezierCurveTo(w, h * 0.44, w * 0.88, h * 0.72, w / 2, h)
+  ctx.arc(cx, capY, r, Math.PI, 0, false)              // 上部半圆（钉帽）
+  ctx.quadraticCurveTo(cx + r * 0.95, capY + r * 1.1, cx, h)   // 右曲线 → 尖端
+  ctx.quadraticCurveTo(cx - r * 0.95, capY + r * 1.1, cx - r, capY) // 左曲线 → 圆左
   ctx.closePath()
-  // 白描边
   ctx.lineWidth = 3
   ctx.strokeStyle = '#ffffff'
   ctx.stroke()
-  // vermilion 填充
   ctx.fillStyle = '#c8432f'
   ctx.fill()
   return ctx.getImageData(0, 0, w, h)
@@ -63,15 +61,16 @@ function createPinImage() {
 
 // 小图钉（单照片点用）
 function createSmallPinImage() {
-  const w = 24, h = 32
+  const w = 26, h = 34
+  const cx = w / 2, r = 10, capY = 11
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d')
   ctx.beginPath()
-  ctx.moveTo(w / 2, h)
-  ctx.bezierCurveTo(w * 0.1, h * 0.7, 0, h * 0.42, w / 2, h * 0.1)
-  ctx.bezierCurveTo(w, h * 0.42, w * 0.9, h * 0.7, w / 2, h)
+  ctx.arc(cx, capY, r, Math.PI, 0, false)
+  ctx.quadraticCurveTo(cx + r * 0.95, capY + r * 1.1, cx, h)
+  ctx.quadraticCurveTo(cx - r * 0.95, capY + r * 1.1, cx - r, capY)
   ctx.closePath()
   ctx.lineWidth = 2.5
   ctx.strokeStyle = '#ffffff'
