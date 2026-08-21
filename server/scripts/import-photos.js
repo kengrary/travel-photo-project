@@ -5,12 +5,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import exifr from 'exifr'
 import { openDb, insertPhoto } from '../db.js'
-import { makeThumb, uploadDir } from '../upload.js'
+import { makeThumb, makeVideoAssets, probeVideo, isVideoFile, uploadDir } from '../upload.js'
 import { loadGeoIndex, reverseGeocode } from '../geocode.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.gif', '.bmp', '.tif', '.tiff'])
+const VIDEO_EXTS = new Set(['.mov', '.mp4', '.m4v'])
+const MEDIA_EXTS = new Set([...IMAGE_EXTS, ...VIDEO_EXTS])
 
 function collectImages(dir, out = []) {
   let entries
@@ -19,7 +21,7 @@ function collectImages(dir, out = []) {
     const full = path.join(dir, e.name)
     if (e.isDirectory()) {
       collectImages(full, out)
-    } else if (e.isFile() && IMAGE_EXTS.has(path.extname(e.name).toLowerCase())) {
+    } else if (e.isFile() && MEDIA_EXTS.has(path.extname(e.name).toLowerCase())) {
       out.push(full)
     }
   }
@@ -107,13 +109,23 @@ async function main() {
     if (already) { skipped++; continue }
 
     try {
-      // --no-original：不复制原图，缩略图/大图直接从源文件生成
-      if (!dryRun && !noOriginal) fs.copyFileSync(src, dest)
-      const readPath = dryRun ? src : (noOriginal ? src : dest)
-      const meta = await exifr.parse(readPath, { gps: true, tiff: true })
-      const lat = meta?.latitude ?? null
-      const lng = meta?.longitude ?? null
-      let takenAt = normalizeTakenAt(meta?.DateTimeOriginal ?? null)
+      const isVideo = isVideoFile(src)
+      let lat = null, lng = null, takenAt = null, duration = null
+
+      if (isVideo) {
+        // 视频：ffprobe 读 GPS/时间/时长（dry-run 也直接读源文件）
+        const meta = await probeVideo(src)
+        lat = meta.lat; lng = meta.lng; takenAt = meta.takenAt; duration = meta.duration
+      } else {
+        // 照片：exifr 读 EXIF
+        if (!dryRun && !noOriginal) fs.copyFileSync(src, dest)
+        const readPath = dryRun ? src : (noOriginal ? src : dest)
+        const meta = await exifr.parse(readPath, { gps: true, tiff: true })
+        lat = meta?.latitude ?? null
+        lng = meta?.longitude ?? null
+        takenAt = normalizeTakenAt(meta?.DateTimeOriginal ?? null)
+      }
+
       let province = null, city = null, county = null
       if (lat != null && lng != null) {
         const r = reverseGeocode(geo, lng, lat)
@@ -121,7 +133,7 @@ async function main() {
       }
 
       // 过滤：根据反查到的省份/城市决定是否导入
-      const skipFile = () => { if (!dryRun && !noOriginal) { try { fs.unlinkSync(dest) } catch {} } }
+      const skipFile = () => { if (!dryRun && !noOriginal && !isVideo) { try { fs.unlinkSync(dest) } catch {} } }
       if (onlyNoLocation && province) { skipFile(); filtered++; continue }
       if (includeProvinces.size && !(province && includeProvinces.has(province))) { skipFile(); filtered++; continue }
       if (excludeProvinces.size && province && excludeProvinces.has(province)) { skipFile(); filtered++; continue }
@@ -129,16 +141,22 @@ async function main() {
       // 跳过既无时间也无位置的照片
       if (onlyWithMeta && !province && !takenAt) { skipFile(); filtered++; continue }
 
-      let thumb = null, full = null
+      let thumb = null, full = null, storedName = base
       if (!dryRun) {
-        // noOriginal 时从源路径生成缩略图/大图
-        const t = await makeThumb(base, noOriginal ? src : undefined)
-        thumb = t.thumb; full = t.full
+        if (isVideo) {
+          // 视频：直接从源文件转码 720p MP4 + 海报帧（无需复制原图）
+          const a = await makeVideoAssets(base, src)
+          thumb = a.thumb; full = a.full; duration = a.duration; storedName = a.video
+        } else {
+          // noOriginal 时从源路径生成缩略图/大图
+          const t = await makeThumb(base, noOriginal ? src : undefined)
+          thumb = t.thumb; full = t.full
+        }
       }
 
       if (!dryRun) {
         insertPhoto(db, {
-          filename: base,
+          filename: storedName,
           original_name: path.basename(src),
           thumb_path: thumb,
           full_path: full,
@@ -147,11 +165,14 @@ async function main() {
           location_name: null,
           origin_path: src,
           size_bytes: stat.size,
+          media_type: isVideo ? 'video' : 'photo',
+          duration,
           created_at: new Date().toISOString(),
         })
       }
       const loc = province ? `${province} ${city || ''} ${county || ''}` : '无位置'
-      console.log(`[${i + 1}/${images.length}] ✓ ${path.basename(src)} -> ${loc} ${takenAt ? takenAt.slice(0, 10) : '无时间'}`)
+      const dur = isVideo && duration ? ` ${Math.round(duration)}s` : ''
+      console.log(`[${i + 1}/${images.length}] ✓ ${path.basename(src)} -> ${loc} ${takenAt ? takenAt.slice(0, 10) : '无时间'}${dur}`)
       ok++
     } catch (e) {
       if (!dryRun && !noOriginal) { try { fs.unlinkSync(dest) } catch {} }

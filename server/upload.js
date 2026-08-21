@@ -2,8 +2,14 @@ import multer from 'multer'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import sharp from 'sharp'
 import heicDecode from 'heic-decode'
+import ffmpegPath from 'ffmpeg-static'
+import ffprobePath from 'ffprobe-static'
+
+const execFileAsync = promisify(execFile)
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const UPLOAD_DIR = path.resolve(__dirname, '../uploads')
@@ -55,4 +61,98 @@ export async function rotatePhoto(filename, totalDegrees, sourcePath = path.join
   await img.clone().rotate(totalDegrees).resize({ width: 600, withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(path.join(THUMB_DIR, thumbName))
   await img.rotate(totalDegrees).resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(path.join(FULL_DIR, fullName))
   return { thumb: `thumbs/${thumbName}`, full: `full/${fullName}` }
+}
+
+// ---- 视频处理 ----
+
+const VIDEO_EXTS = new Set(['.mov', '.mp4', '.m4v'])
+export const isVideoFile = (name) => VIDEO_EXTS.has(path.extname(name).toLowerCase())
+
+// 选择 ffmpeg：优先支持 NVENC 的（GPU 加速），否则退回静态版
+let ffmpegCache = null
+async function resolveFfmpeg() {
+  if (ffmpegCache) return ffmpegCache
+  const home = path.join(process.env.HOME || '', 'bin', 'ffmpeg')
+  const candidates = [process.env.FFMPEG_PATH, home, 'ffmpeg', ffmpegPath].filter(Boolean)
+  for (const candidate of candidates) {
+    try {
+      const { stdout } = await execFileAsync(candidate, ['-hide_banner', '-encoders'])
+      const gpu = /h264_nvenc/.test(stdout)
+      ffmpegCache = { path: candidate, gpu }
+      return ffmpegCache
+    } catch { /* 下一个候选 */ }
+  }
+  ffmpegCache = { path: ffmpegPath, gpu: false }
+  return ffmpegCache
+}
+
+// 解析 ISO6709 位置标签，如 "+23.0106+113.1620/" 或 "+23.0106+113.1620+10.5/"
+function parseIso6709(loc) {
+  if (!loc) return null
+  const m = String(loc).match(/^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)/)
+  if (!m) return null
+  return { lat: Number(m[1]), lng: Number(m[2]) }
+}
+
+// ffprobe 读取视频元数据：GPS、拍摄时间、时长
+export async function probeVideo(srcPath) {
+  const { stdout } = await execFileAsync(ffprobePath.path, [
+    '-v', 'quiet', '-print_format', 'json', '-show_format', srcPath,
+  ])
+  const j = JSON.parse(stdout)
+  const tags = j.format?.tags || {}
+  const locRaw = tags.location || tags['location-eng'] || tags['com.apple.quicktime.location.ISO6709']
+  const pos = parseIso6709(locRaw)
+  let takenAt = tags.creation_time ?? null
+  if (takenAt && !isNaN(new Date(takenAt))) takenAt = new Date(takenAt).toISOString()
+  else takenAt = null
+  const duration = Number(j.format?.duration) || null
+  return { lat: pos?.lat ?? null, lng: pos?.lng ?? null, takenAt, duration }
+}
+
+// 视频入库资产：转码 720p H.264 MP4（浏览器可播）+ 抽帧海报（缩略图/大图）
+// 有 NVIDIA GPU 时用 NVENC 硬件加速，否则 CPU libx264
+// 返回 { video: 'xxx.mp4'(uploads 相对), thumb, full, duration }
+export async function makeVideoAssets(baseName, sourcePath) {
+  const videoName = `${path.basename(baseName, path.extname(baseName))}.mp4`
+  const destVideo = path.join(UPLOAD_DIR, videoName)
+  const ff = await resolveFfmpeg()
+  // 转码：最长边 1280 的 H.264 + AAC，faststart 便于边下边播
+  const args = ['-y']
+  if (ff.gpu) args.push('-hwaccel', 'cuda')
+  args.push('-i', sourcePath,
+    '-vf', "scale='min(1280,iw)':-2",
+    '-c:v', ff.gpu ? 'h264_nvenc' : 'libx264',
+    '-preset', ff.gpu ? 'p4' : 'medium', '-crf', '23',
+    '-c:a', 'aac', '-b:a', '128k',
+    '-movflags', '+faststart')
+  try {
+    await execFileAsync(ff.path, [...args, destVideo])
+  } catch (e) {
+    // GPU 编码失败时回退 CPU
+    if (ff.gpu) {
+      await execFileAsync(ffmpegPath, [
+        '-y', '-i', sourcePath,
+        '-vf', "scale='min(1280,iw)':-2",
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
+        '-c:a', 'aac', '-b:a', '128k',
+        '-movflags', '+faststart',
+        destVideo,
+      ])
+    } else throw e
+  }
+  // 海报帧：从转码产物第 1 秒抽帧
+  const base = path.basename(videoName)
+  const thumbName = `thumb-${base}.jpg`
+  const fullName = `full-${base}.jpg`
+  await execFileAsync(ff.path, [
+    '-y', '-ss', '1', '-i', destVideo, '-frames:v', '1',
+    '-vf', 'scale=600:-2', path.join(THUMB_DIR, thumbName),
+  ])
+  await execFileAsync(ff.path, [
+    '-y', '-ss', '1', '-i', destVideo, '-frames:v', '1',
+    '-vf', 'scale=1600:-2', path.join(FULL_DIR, fullName),
+  ])
+  const { duration } = await probeVideo(destVideo)
+  return { video: videoName, thumb: `thumbs/${thumbName}`, full: `full/${fullName}`, duration }
 }

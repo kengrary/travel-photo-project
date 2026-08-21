@@ -3,7 +3,7 @@ import exifr from 'exifr'
 import path from 'node:path'
 import fs from 'node:fs'
 import { insertPhoto, listPhotos, countByLocation, updateLocation, updatePhotoMeta, deletePhoto, getPhoto } from '../db.js'
-import { upload, makeThumb, rotatePhoto, uploadDir } from '../upload.js'
+import { upload, makeThumb, rotatePhoto, uploadDir, isVideoFile, probeVideo, makeVideoAssets } from '../upload.js'
 import { reverseGeocode } from '../geocode.js'
 
 async function cleanupFile(file) {
@@ -33,27 +33,44 @@ export function photosRouter(db, geo) {
     const results = []
     for (const file of req.files) {
       try {
-        const meta = await exifr.parse(file.path, { gps: true, tiff: true })
-        const lat = meta?.latitude ?? null
-        const lng = meta?.longitude ?? null
-        // DateTimeOriginal 可能是 Date 对象，需转成字符串才能写入 SQLite
-        let takenAt = meta?.DateTimeOriginal ?? null
-        if (takenAt instanceof Date) takenAt = takenAt.toISOString()
-        else if (takenAt != null && typeof takenAt !== 'string') takenAt = String(takenAt)
+        const isVideo = isVideoFile(file.originalname)
+        let lat = null, lng = null, takenAt = null, duration = null
+        if (isVideo) {
+          const meta = await probeVideo(file.path)
+          lat = meta.lat; lng = meta.lng; takenAt = meta.takenAt; duration = meta.duration
+        } else {
+          const meta = await exifr.parse(file.path, { gps: true, tiff: true })
+          lat = meta?.latitude ?? null
+          lng = meta?.longitude ?? null
+          // DateTimeOriginal 可能是 Date 对象，需转成字符串才能写入 SQLite
+          takenAt = meta?.DateTimeOriginal ?? null
+          if (takenAt instanceof Date) takenAt = takenAt.toISOString()
+          else if (takenAt != null && typeof takenAt !== 'string') takenAt = String(takenAt)
+        }
         let province = null, city = null, county = null
         if (lat != null && lng != null) {
           const r = reverseGeocode(geo, lng, lat)
           province = r.province; city = r.city; county = r.county
         }
-        const { thumb, full } = await makeThumb(file.filename)
+        let storedName = file.filename, thumb, full
+        if (isVideo) {
+          // 视频：转码 720p MP4 + 海报帧（转码产物替换原上传文件）
+          const a = await makeVideoAssets(file.filename, file.path)
+          storedName = a.video; thumb = a.thumb; full = a.full; duration = a.duration
+          try { fs.unlinkSync(file.path) } catch {}
+        } else {
+          ({ thumb, full } = await makeThumb(file.filename))
+        }
         const photo = insertPhoto(db, {
-          filename: file.filename,
+          filename: storedName,
           original_name: file.originalname,
           thumb_path: thumb,
           full_path: full,
           taken_at: takenAt,
           lat, lng, province, city, county,
           location_name: null,
+          media_type: isVideo ? 'video' : 'photo',
+          duration,
           created_at: new Date().toISOString(),
         })
         results.push(photo)

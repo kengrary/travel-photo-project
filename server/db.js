@@ -23,28 +23,33 @@ export function openDb(dbPath = process.env.DB_PATH || path.resolve('server/data
       origin_path TEXT,
       size_bytes INTEGER,
       rotate_deg INTEGER DEFAULT 0,
+      media_type TEXT DEFAULT 'photo',
+      duration REAL,
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_photos_taken ON photos(taken_at);
     CREATE INDEX IF NOT EXISTS idx_photos_loc ON photos(province, city, county);
   `)
-  // 迁移：旧库补充 full_path / origin_path / size_bytes / rotate_deg 列
+  // 迁移：旧库补充 full_path / origin_path / size_bytes / rotate_deg / media_type / duration 列
   const cols = db.prepare(`PRAGMA table_info(photos)`).all().map((c) => c.name)
   if (!cols.includes('full_path')) db.exec(`ALTER TABLE photos ADD COLUMN full_path TEXT`)
   if (!cols.includes('origin_path')) db.exec(`ALTER TABLE photos ADD COLUMN origin_path TEXT`)
   if (!cols.includes('size_bytes')) db.exec(`ALTER TABLE photos ADD COLUMN size_bytes INTEGER`)
   if (!cols.includes('rotate_deg')) db.exec(`ALTER TABLE photos ADD COLUMN rotate_deg INTEGER DEFAULT 0`)
+  if (!cols.includes('media_type')) db.exec(`ALTER TABLE photos ADD COLUMN media_type TEXT DEFAULT 'photo'`)
+  if (!cols.includes('duration')) db.exec(`ALTER TABLE photos ADD COLUMN duration REAL`)
   return db
 }
 
 export function insertPhoto(db, photo) {
   const stmt = db.prepare(`
-    INSERT INTO photos (filename, original_name, thumb_path, full_path, taken_at, lat, lng, province, city, county, location_name, origin_path, size_bytes, created_at)
-    VALUES (@filename, @original_name, @thumb_path, @full_path, @taken_at, @lat, @lng, @province, @city, @county, @location_name, @origin_path, @size_bytes, @created_at)
+    INSERT INTO photos (filename, original_name, thumb_path, full_path, taken_at, lat, lng, province, city, county, location_name, origin_path, size_bytes, rotate_deg, media_type, duration, created_at)
+    VALUES (@filename, @original_name, @thumb_path, @full_path, @taken_at, @lat, @lng, @province, @city, @county, @location_name, @origin_path, @size_bytes, @rotate_deg, @media_type, @duration, @created_at)
   `)
   const info = stmt.run({
     original_name: null, thumb_path: null, full_path: null, taken_at: null, lat: null, lng: null,
     province: null, city: null, county: null, location_name: null, origin_path: null, size_bytes: null,
+    rotate_deg: 0, media_type: 'photo', duration: null,
     ...photo,
   })
   return getPhoto(db, info.lastInsertRowid)

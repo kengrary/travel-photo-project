@@ -38,11 +38,16 @@ export default function Lightbox({ photo, onClose, onDelete, onRotated }) {
   }
 
   const fullSrc = `${photo.full_path ? `/uploads/${photo.full_path}` : `/uploads/${photo.filename}`}?t=${bust}`
+  const isVideo = photo.media_type === 'video'
 
   return (
     <div className="lightbox" onClick={onClose}>
       <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
-        <img src={fullSrc} alt={photo.original_name} />
+        {isVideo ? (
+          <video src={`/uploads/${photo.filename}`} poster={fullSrc} controls autoPlay />
+        ) : (
+          <img src={fullSrc} alt={photo.original_name} />
+        )}
         <div className="lightbox-meta">
           <strong>{photo.original_name}</strong><br />
           {fmtTime(photo.taken_at)}
@@ -51,9 +56,11 @@ export default function Lightbox({ photo, onClose, onDelete, onRotated }) {
           {photo.location_name ? ` · ${photo.location_name}` : ''}
         </div>
         <div className="lightbox-actions">
-          <button className="btn btn-ghost" onClick={handleRotate} disabled={rotating}>
-            {rotating ? '旋转中…' : '↻ 旋转 90°'}
-          </button>
+          {!isVideo && (
+            <button className="btn btn-ghost" onClick={handleRotate} disabled={rotating}>
+              {rotating ? '旋转中…' : '↻ 旋转 90°'}
+            </button>
+          )}
           {onDelete && (
             <button className="btn btn-delete" onClick={handleDelete}>删除照片</button>
           )}

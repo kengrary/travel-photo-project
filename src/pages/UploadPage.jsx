@@ -121,7 +121,7 @@ export default function UploadPage() {
         <input
           ref={fileInput}
           type="file" multiple
-          accept="image/*,.heic,.heif"
+          accept="image/*,.heic,.heif,.mov,.mp4"
           onChange={onSelect} style={{ display: 'none' }}
         />
         <div className="drop-label">

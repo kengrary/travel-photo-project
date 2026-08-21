@@ -16,6 +16,13 @@ export function fmtShortTime(t) {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
 }
 
+export function fmtDuration(s) {
+  if (!s) return ''
+  const m = Math.floor(s / 60)
+  const sec = Math.round(s % 60)
+  return m > 0 ? `${m}:${String(sec).padStart(2, '0')}` : `0:${String(sec).padStart(2, '0')}`
+}
+
 export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhotoDragStart }) {
   const [lightbox, setLightbox] = useState(null)
   const [rotCount, setRotCount] = useState({})
@@ -67,7 +74,19 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhot
               draggable={!!onPhotoDragStart}
               onDragStart={onPhotoDragStart ? (e) => onPhotoDragStart(e, p) : undefined}
             >
-              <img src={`/uploads/${p.thumb_path}?t=${rotCount[p.id] || 0}`} alt={p.original_name} loading="lazy" />
+              {p.media_type === 'video' ? (
+                <video
+                  src={`/uploads/${p.filename}`}
+                  poster={`/uploads/${p.thumb_path}?t=${rotCount[p.id] || 0}`}
+                  preload="metadata"
+                  muted
+                />
+              ) : (
+                <img src={`/uploads/${p.thumb_path}?t=${rotCount[p.id] || 0}`} alt={p.original_name} loading="lazy" />
+              )}
+              {p.media_type === 'video' && p.duration != null && (
+                <span className="photo-duration">▶ {fmtDuration(p.duration)}</span>
+              )}
               <div className="photo-cap">
                 <div className="photo-cap-loc">
                   {[p.province, p.city, p.county].filter(Boolean).join(' ') || p.original_name}
@@ -83,14 +102,16 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhot
                 >
                   🗑
                 </button>
-                <button
-                  className="photo-rotate"
-                  title="旋转 90°"
-                  aria-label="旋转 90°"
-                  onClick={(e) => handleRotate(e, p)}
-                >
-                  ↻
-                </button>
+                {p.media_type !== 'video' && (
+                  <button
+                    className="photo-rotate"
+                    title="旋转 90°"
+                    aria-label="旋转 90°"
+                    onClick={(e) => handleRotate(e, p)}
+                  >
+                    ↻
+                  </button>
+                )}
               </div>
             </div>
           ))}

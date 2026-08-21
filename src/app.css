@@ -234,6 +234,15 @@ a { text-decoration: none; color: inherit; }
 .photo-card:hover .photo-cap { opacity: 1; }
 .photo-cap-loc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .photo-cap-time { font-size: 11px; color: rgba(251, 247, 236, 0.75); margin-top: 2px; letter-spacing: 0.5px; }
+/* 视频时长角标 */
+.photo-duration {
+  position: absolute; right: 8px; bottom: 8px; z-index: 2;
+  padding: 2px 7px; border-radius: 4px;
+  background: rgba(20, 20, 20, 0.72); color: #fff;
+  font-size: 11px; letter-spacing: 0.5px;
+}
+.photo-card video { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: #000; }
+.lightbox-inner video { max-width: 94vw; max-height: 80vh; border-radius: var(--radius); box-shadow: 0 24px 70px rgba(0,0,0,0.55); }
 
 .empty {
   text-align: center; padding: 64px 24px; color: var(--ink-soft);
