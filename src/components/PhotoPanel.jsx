@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { fetchPhotos, deletePhoto } from '../api.js'
 import PhotoGrid from './PhotoGrid.jsx'
 
-export default function PhotoPanel({ filter, photos, label, onClose }) {
+export default function PhotoPanel({ filter, photos, label, onClose, onDeleted }) {
   const [loadedPhotos, setLoadedPhotos] = useState(null)
   const [collapsed, setCollapsed] = useState(false)
+  const [removedIds, setRemovedIds] = useState(() => new Set())
 
   // 有显式 photos（聚合点传入）则直接用；否则按 filter 拉取
   useEffect(() => {
@@ -15,12 +16,16 @@ export default function PhotoPanel({ filter, photos, label, onClose }) {
     return () => { ignore = true }
   }, [photos, filter?.province, filter?.city, filter?.county])
 
-  const shown = photos || loadedPhotos || []
+  const shown = (photos || loadedPhotos || []).filter((p) => !removedIds.has(p.id))
   const place = label || [filter?.province, filter?.city, filter?.county].filter(Boolean).join(' · ')
   const hasPanel = photos || (filter && filter.province)
   if (!hasPanel) return null
 
-  const handleDeleted = (id) => setLoadedPhotos((list) => (list ? list.filter((p) => p.id !== id) : list))
+  const handleDeleted = (id) => {
+    setRemovedIds((s) => new Set(s).add(id))
+    setLoadedPhotos((list) => (list ? list.filter((p) => p.id !== id) : list))
+    if (onDeleted) onDeleted(id)
+  }
 
   if (collapsed) {
     const shortPlace = place && place.split(' · ').slice(-2).join(' · ')

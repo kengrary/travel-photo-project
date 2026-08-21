@@ -232,6 +232,7 @@ export default function MapPage() {
         photos={selected?.photos}
         label={selected?.label}
         onClose={() => setSelected(null)}
+        onDeleted={() => loadPhotosRef.current()}
       />
     </div>
   )
