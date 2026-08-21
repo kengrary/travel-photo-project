@@ -100,15 +100,18 @@ export function photosRouter(db, geo) {
     res.json({ photo })
   })
 
-  // 永久旋转照片：重新生成旋转后的缩略图与大图
+  // 永久旋转照片：按累计角度从原始文件旋转，重新生成缩略图与大图
   router.post('/:id/rotate', async (req, res) => {
     const photo = getPhoto(db, req.params.id)
     if (!photo) return res.status(404).json({ error: 'Photo not found' })
-    const degrees = Number(req.body.degrees) || 90
-    if (![90, 180, 270].includes(degrees)) return res.status(400).json({ error: 'degrees must be 90, 180 or 270' })
+    const step = Number(req.body.degrees) || 90
+    if (![90, 180, 270].includes(step)) return res.status(400).json({ error: 'degrees must be 90, 180 or 270' })
+    const current = Number(photo.rotate_deg) || 0
+    const total = (current + step) % 360
     try {
-      await rotatePhoto(photo.filename, degrees)
-      res.json({ ok: true, id: photo.id })
+      await rotatePhoto(photo.filename, total)
+      db.prepare('UPDATE photos SET rotate_deg = ? WHERE id = ?').run(total, photo.id)
+      res.json({ ok: true, id: photo.id, rotate_deg: total })
     } catch (e) {
       res.status(500).json({ error: e.message })
     }

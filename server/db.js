@@ -22,16 +22,18 @@ export function openDb(dbPath = process.env.DB_PATH || path.resolve('server/data
       location_name TEXT,
       origin_path TEXT,
       size_bytes INTEGER,
+      rotate_deg INTEGER DEFAULT 0,
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_photos_taken ON photos(taken_at);
     CREATE INDEX IF NOT EXISTS idx_photos_loc ON photos(province, city, county);
   `)
-  // 迁移：旧库补充 full_path / origin_path / size_bytes 列
+  // 迁移：旧库补充 full_path / origin_path / size_bytes / rotate_deg 列
   const cols = db.prepare(`PRAGMA table_info(photos)`).all().map((c) => c.name)
   if (!cols.includes('full_path')) db.exec(`ALTER TABLE photos ADD COLUMN full_path TEXT`)
   if (!cols.includes('origin_path')) db.exec(`ALTER TABLE photos ADD COLUMN origin_path TEXT`)
   if (!cols.includes('size_bytes')) db.exec(`ALTER TABLE photos ADD COLUMN size_bytes INTEGER`)
+  if (!cols.includes('rotate_deg')) db.exec(`ALTER TABLE photos ADD COLUMN rotate_deg INTEGER DEFAULT 0`)
   return db
 }
 
