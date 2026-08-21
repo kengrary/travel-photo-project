@@ -138,6 +138,62 @@ a { text-decoration: none; color: inherit; }
 .photo-card.draggable { cursor: grab; }
 .photo-card.draggable:active { cursor: grabbing; }
 
+/* ---- 时间轴 ---- */
+.timeline { position: relative; }
+.tl-year {
+  position: relative;
+  padding-left: 64px;
+  margin-bottom: 34px;
+}
+/* 垂直主线 */
+.timeline::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 22px;
+  width: 2px; background: var(--line);
+}
+/* 年份节点 */
+.tl-year-label {
+  position: absolute; left: 0; top: 0;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 2px solid var(--vermillion);
+  border-radius: 50%;
+  font-family: var(--display); font-weight: 700; font-size: 13px; color: var(--vermillion);
+  z-index: 1;
+}
+.tl-month-list { display: flex; flex-direction: column; gap: 20px; }
+.tl-month {
+  position: relative;
+  padding: 10px 14px 10px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.tl-month-label {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.5px; color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.tl-places { display: flex; flex-direction: column; gap: 6px; }
+.tl-place { }
+.tl-place-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 8px 10px;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  cursor: pointer; text-align: left;
+  transition: all 0.15s;
+}
+.tl-place-btn:hover { background: var(--accent-soft); border-color: var(--line); }
+.tl-place-name { flex: 1; font-size: 14px; color: var(--ink); font-weight: 500; }
+.tl-place-count { font-size: 12px; color: var(--vermillion); }
+.tl-place-arrow { font-size: 11px; color: var(--ink-soft); }
+.tl-place-expand {
+  padding: 12px 6px 4px 10px;
+  border-left: 2px solid var(--line);
+  margin-left: 6px;
+}
+.tl-place-expand .photogrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.tl-place-expand .photo-card img { aspect-ratio: 1; }
+
+
 /* ---- 照片网格：发丝线框卡片 ---- */
 .photogrid {
   display: grid;
