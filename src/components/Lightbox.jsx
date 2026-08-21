@@ -1,7 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { fmtTime } from './PhotoGrid.jsx'
+import { rotatePhoto } from '../api.js'
 
 export default function Lightbox({ photo, onClose, onDelete }) {
+  const [bust, setBust] = useState(0)
+  const [rotating, setRotating] = useState(false)
+
   useEffect(() => {
     if (!photo) return
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
@@ -19,7 +23,20 @@ export default function Lightbox({ photo, onClose, onDelete }) {
     }
   }
 
-  const fullSrc = photo.full_path ? `/uploads/${photo.full_path}` : `/uploads/${photo.filename}`
+  const handleRotate = async () => {
+    if (rotating) return
+    setRotating(true)
+    try {
+      await rotatePhoto(photo.id, 90)
+      setBust((n) => n + 1) // 刷新图片缓存
+    } catch (e) {
+      alert(`旋转失败：${e.message}`)
+    } finally {
+      setRotating(false)
+    }
+  }
+
+  const fullSrc = `${photo.full_path ? `/uploads/${photo.full_path}` : `/uploads/${photo.filename}`}?t=${bust}`
 
   return (
     <div className="lightbox" onClick={onClose}>
@@ -32,9 +49,14 @@ export default function Lightbox({ photo, onClose, onDelete }) {
           {[photo.province, photo.city, photo.county].filter(Boolean).join(' ') || '未知地点'}
           {photo.location_name ? ` · ${photo.location_name}` : ''}
         </div>
-        {onDelete && (
-          <button className="btn btn-delete" onClick={handleDelete}>删除照片</button>
-        )}
+        <div className="lightbox-actions">
+          <button className="btn btn-ghost" onClick={handleRotate} disabled={rotating}>
+            {rotating ? '旋转中…' : '↻ 旋转 90°'}
+          </button>
+          {onDelete && (
+            <button className="btn btn-delete" onClick={handleDelete}>删除照片</button>
+          )}
+        </div>
       </div>
     </div>
   )

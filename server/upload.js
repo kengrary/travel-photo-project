@@ -44,3 +44,15 @@ export async function makeThumb(filename) {
   await img.resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(path.join(FULL_DIR, fullName))
   return { thumb: `thumbs/${thumbName}`, full: `full/${fullName}` }
 }
+
+// 永久旋转：重新生成旋转后的缩略图与大图（浏览器显示用），原图保留
+export async function rotatePhoto(filename, degrees) {
+  const src = path.join(UPLOAD_DIR, filename)
+  const img = await loadImage(src)
+  const base = path.basename(filename)
+  const thumbName = `thumb-${base}`
+  const fullName = `full-${base}`
+  await img.clone().rotate(degrees).resize({ width: 600, withoutEnlargement: true }).jpeg({ quality: 80 }).toFile(path.join(THUMB_DIR, thumbName))
+  await img.rotate(degrees).resize({ width: 1600, withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(path.join(FULL_DIR, fullName))
+  return { thumb: `thumbs/${thumbName}`, full: `full/${fullName}` }
+}

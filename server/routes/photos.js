@@ -2,8 +2,8 @@ import { Router } from 'express'
 import exifr from 'exifr'
 import path from 'node:path'
 import fs from 'node:fs'
-import { insertPhoto, listPhotos, countByLocation, updateLocation, updatePhotoMeta, deletePhoto } from '../db.js'
-import { upload, makeThumb, uploadDir } from '../upload.js'
+import { insertPhoto, listPhotos, countByLocation, updateLocation, updatePhotoMeta, deletePhoto, getPhoto } from '../db.js'
+import { upload, makeThumb, rotatePhoto, uploadDir } from '../upload.js'
 import { reverseGeocode } from '../geocode.js'
 
 async function cleanupFile(file) {
@@ -98,6 +98,20 @@ export function photosRouter(db, geo) {
     const photo = updatePhotoMeta(db, req.params.id, fields)
     if (!photo) return res.status(404).json({ error: 'Photo not found' })
     res.json({ photo })
+  })
+
+  // 永久旋转照片：重新生成旋转后的缩略图与大图
+  router.post('/:id/rotate', async (req, res) => {
+    const photo = getPhoto(db, req.params.id)
+    if (!photo) return res.status(404).json({ error: 'Photo not found' })
+    const degrees = Number(req.body.degrees) || 90
+    if (![90, 180, 270].includes(degrees)) return res.status(400).json({ error: 'degrees must be 90, 180 or 270' })
+    try {
+      await rotatePhoto(photo.filename, degrees)
+      res.json({ ok: true, id: photo.id })
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
   })
 
   router.delete('/:id', async (req, res) => {

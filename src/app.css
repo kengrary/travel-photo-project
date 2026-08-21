@@ -250,6 +250,11 @@ a { text-decoration: none; color: inherit; }
 .lightbox-inner img { max-width: 94vw; max-height: 80vh; border-radius: var(--radius); box-shadow: 0 24px 70px rgba(0,0,0,0.55); }
 .lightbox-meta { color: #d9d3c4; margin-top: 14px; font-size: 14px; text-align: center; line-height: 1.7; letter-spacing: 0.3px; }
 .lightbox-meta strong { color: #fff; }
+.lightbox-actions {
+  display: flex; gap: 10px; margin-top: 16px;
+}
+.lightbox-actions .btn-ghost { color: #e7e0d0; border-color: rgba(231,224,208,0.4); background: transparent; }
+.lightbox-actions .btn-ghost:hover { border-color: #fff; color: #fff; }
 
 /* ---- 上传 ---- */
 .drop {

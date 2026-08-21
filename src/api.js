@@ -17,5 +17,7 @@ export const deletePhoto = (id) =>
   fetch(`/api/photos/${id}`, { method: 'DELETE' }).then(j)
 export const updatePhotoMeta = (id, fields) =>
   fetch(`/api/photos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }).then(j).then((d) => d.photo)
+export const rotatePhoto = (id, degrees) =>
+  fetch(`/api/photos/${id}/rotate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ degrees }) }).then(j)
 export const reverseGeocode = (lat, lng) =>
   fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`).then(j)
