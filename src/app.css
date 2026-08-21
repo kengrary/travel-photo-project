@@ -224,10 +224,12 @@ a { text-decoration: none; color: inherit; }
 .photo-cap {
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: 28px 10px 9px; font-size: 12px; letter-spacing: 0.3px; color: #fbf7ec;
-  background: linear-gradient(transparent, rgba(40, 38, 33, 0.72));
+  background: linear-gradient(transparent, rgba(40, 38, 33, 0.78));
   opacity: 0; transition: opacity 0.16s;
 }
 .photo-card:hover .photo-cap { opacity: 1; }
+.photo-cap-loc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.photo-cap-time { font-size: 11px; color: rgba(251, 247, 236, 0.75); margin-top: 2px; letter-spacing: 0.5px; }
 
 .empty {
   text-align: center; padding: 64px 24px; color: var(--ink-soft);

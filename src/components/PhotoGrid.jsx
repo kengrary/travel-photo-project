@@ -8,6 +8,13 @@ export function fmtTime(t) {
   return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
+export function fmtShortTime(t) {
+  if (!t) return '未知时间'
+  const d = new Date(t)
+  if (isNaN(d)) return '未知时间'
+  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+}
+
 export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhotoDragStart }) {
   const [lightbox, setLightbox] = useState(null)
 
@@ -50,7 +57,10 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhot
             >
               <img src={`/uploads/${p.thumb_path}`} alt={p.original_name} loading="lazy" />
               <div className="photo-cap">
-                {[p.province, p.city, p.county].filter(Boolean).join(' ') || p.original_name}
+                <div className="photo-cap-loc">
+                  {[p.province, p.city, p.county].filter(Boolean).join(' ') || p.original_name}
+                </div>
+                <div className="photo-cap-time">{fmtShortTime(p.taken_at)}</div>
               </div>
               {onDelete && (
                 <button
