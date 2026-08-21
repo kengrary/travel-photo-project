@@ -38,46 +38,46 @@ const mapState = {
   zoom: 3.3,
 }
 
-// 用 canvas 生成图钉(teardrop)图片：上部半圆帽 + 底部尖端，注册为 MapLibre 图标
-function createPinImage() {
-  const w = 44, h = 56
-  const cx = w / 2, r = 17, capY = 19
+// 用 canvas 生成图钉(teardrop)图片：上部半圆帽 + 底部尖端 + 钉帽中空圆环
+// 颜色随数量档变化（低=青、中=橙、高=红），钉帽中央留白给数字
+function drawPin(w, h, color) {
+  const cx = w / 2, r = w / 2 - 4, capY = w / 2
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d')
   ctx.beginPath()
-  ctx.arc(cx, capY, r, Math.PI, 0, false)              // 上部半圆（钉帽）
-  ctx.quadraticCurveTo(cx + r * 0.95, capY + r * 1.1, cx, h)   // 右曲线 → 尖端
-  ctx.quadraticCurveTo(cx - r * 0.95, capY + r * 1.1, cx - r, capY) // 左曲线 → 圆左
+  ctx.arc(cx, capY, r, Math.PI, 0, false)                    // 上部半圆（钉帽）
+  ctx.quadraticCurveTo(cx + r * 0.95, capY + r * 1.1, cx, h) // 右曲线 → 尖端
+  ctx.quadraticCurveTo(cx - r * 0.95, capY + r * 1.1, cx - r, capY) // 左曲线
   ctx.closePath()
   ctx.lineWidth = 3
   ctx.strokeStyle = '#ffffff'
   ctx.stroke()
-  ctx.fillStyle = '#c8432f'
+  ctx.fillStyle = color
   ctx.fill()
+  // 钉帽中央中空圆环（留白给数字）
+  ctx.beginPath()
+  ctx.arc(cx, capY, r * 0.5, 0, Math.PI * 2)
+  ctx.lineWidth = 4
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
   return ctx.getImageData(0, 0, w, h)
 }
 
-// 小图钉（单照片点用）
+// 各数量档的图钉图片（低/中/高，颜色区分）
+function createPinImages() {
+  return {
+    'pin-low': drawPin(44, 56, '#4a7fa5'),   // 数量少：青
+    'pin-mid': drawPin(48, 62, '#e08a3c'),   // 数量中：橙
+    'pin-high': drawPin(54, 70, '#c8432f'),  // 数量多：vermilion 红
+  }
+}
+
+// 小图钉（单照片点用，vermilion）
 function createSmallPinImage() {
   const w = 26, h = 34
-  const cx = w / 2, r = 10, capY = 11
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-  ctx.beginPath()
-  ctx.arc(cx, capY, r, Math.PI, 0, false)
-  ctx.quadraticCurveTo(cx + r * 0.95, capY + r * 1.1, cx, h)
-  ctx.quadraticCurveTo(cx - r * 0.95, capY + r * 1.1, cx - r, capY)
-  ctx.closePath()
-  ctx.lineWidth = 2.5
-  ctx.strokeStyle = '#ffffff'
-  ctx.stroke()
-  ctx.fillStyle = '#c8432f'
-  ctx.fill()
-  return ctx.getImageData(0, 0, w, h)
+  return drawPin(w, h, '#c8432f')
 }
 
 export default function MapPage() {
@@ -131,21 +131,29 @@ export default function MapPage() {
       if (!map.getSource('photo-points')) {
         map.addSource('photo-points', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
 
-        // 注册图钉图片（聚合点图标）
-        if (!map.hasImage('pin')) map.addImage('pin', createPinImage())
+        // 注册图钉图片（聚合点按数量档用不同颜色/大小的图钉）
+        const pinImages = createPinImages()
+        for (const [name, img] of Object.entries(pinImages)) {
+          if (!map.hasImage(name)) map.addImage(name, img)
+        }
         if (!map.hasImage('pin-small')) map.addImage('pin-small', createSmallPinImage())
 
-        // 聚合点：图钉图标 + 数量数字（有 cluster 属性）
+        // 聚合点：图钉图标（按数量选颜色档）+ 数量数字显示在钉帽中空圆心
         map.addLayer({
           id: 'cluster-pin', type: 'symbol', source: 'photo-points',
           filter: ['has', 'point_count'],
           layout: {
-            'icon-image': 'pin',
-            'icon-size': ['interpolate', ['linear'], ['get', 'point_count'], 2, 0.55, 20, 0.7, 100, 0.9, 500, 1.1],
+            'icon-image': [
+              'match', ['get', 'point_count'],
+              20, 'pin-low',
+              100, 'pin-mid',
+              'pin-high',
+            ],
+            'icon-size': ['interpolate', ['linear'], ['get', 'point_count'], 2, 0.6, 20, 0.75, 100, 0.95, 500, 1.15],
             'icon-anchor': 'bottom', // 尖端对准坐标
             'text-field': ['get', 'point_count_abbreviated'],
             'text-size': 12,
-            'text-offset': [0, -0.35], // 数字显示在钉帽（圆）中央
+            'text-offset': [0, 0.15], // 数字居中于钉帽中空圆环
             'text-allow-overlap': true,
             'text-anchor': 'center',
           },
