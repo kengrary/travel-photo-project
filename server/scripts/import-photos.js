@@ -44,6 +44,7 @@ async function main() {
   let onlyNoLocation = false
   let onlyWithMeta = false
   const includeExts = new Set()
+  let noOriginal = false
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
     if (a === '--include-province' && args[i + 1]) { includeProvinces.add(args[++i]); }
@@ -51,6 +52,7 @@ async function main() {
     if (a === '--exclude-city' && args[i + 1]) { excludeCities.add(args[++i]); }
     if (a === '--no-location') onlyNoLocation = true
     if (a === '--with-meta') onlyWithMeta = true
+    if (a === '--no-original') noOriginal = true
     if (a === '--ext' && args[i + 1]) {
       // 支持逗号分隔的多个扩展名，如 --ext heic,jpg
       for (const e of args[++i].split(',')) if (e) includeExts.add(e.trim().replace(/^\./, '').toLowerCase())
@@ -58,7 +60,7 @@ async function main() {
   }
 
   if (!dirArg) {
-    console.error('用法: node server/scripts/import-photos.js <照片目录> [--dry-run] [--include-province 广东省] [--exclude-province 广东省] [--exclude-city 佛山市] [--no-location] [--with-meta] [--ext heic,jpg]')
+    console.error('用法: node server/scripts/import-photos.js <照片目录> [--dry-run] [--include-province 广东省] [--exclude-province 广东省] [--exclude-city 佛山市] [--no-location] [--with-meta] [--no-original] [--ext heic,jpg]')
     process.exit(1)
   }
   const srcDir = path.resolve(dirArg)
@@ -80,6 +82,7 @@ async function main() {
   if (excludeCities.size) console.log(`过滤：排除城市 ${[...excludeCities].join('、')}`)
   if (onlyNoLocation) console.log('过滤：仅导入无位置照片')
   if (onlyWithMeta) console.log('过滤：跳过无时间且无位置的照片')
+  if (noOriginal) console.log('模式：不复制原图，仅生成缩略图+大图')
   if (includeExts.size) console.log(`过滤：仅导入 ${[...includeExts].join(', ')} 格式`)
 
   let ok = 0, skipped = 0, failed = 0, filtered = 0
@@ -104,8 +107,10 @@ async function main() {
     if (already) { skipped++; continue }
 
     try {
-      if (!dryRun) fs.copyFileSync(src, dest)
-      const meta = await exifr.parse(dryRun ? src : dest, { gps: true, tiff: true })
+      // --no-original：不复制原图，缩略图/大图直接从源文件生成
+      if (!dryRun && !noOriginal) fs.copyFileSync(src, dest)
+      const readPath = dryRun ? src : (noOriginal ? src : dest)
+      const meta = await exifr.parse(readPath, { gps: true, tiff: true })
       const lat = meta?.latitude ?? null
       const lng = meta?.longitude ?? null
       let takenAt = normalizeTakenAt(meta?.DateTimeOriginal ?? null)
@@ -116,7 +121,7 @@ async function main() {
       }
 
       // 过滤：根据反查到的省份/城市决定是否导入
-      const skipFile = () => { if (!dryRun) { try { fs.unlinkSync(dest) } catch {} } }
+      const skipFile = () => { if (!dryRun && !noOriginal) { try { fs.unlinkSync(dest) } catch {} } }
       if (onlyNoLocation && province) { skipFile(); filtered++; continue }
       if (includeProvinces.size && !(province && includeProvinces.has(province))) { skipFile(); filtered++; continue }
       if (excludeProvinces.size && province && excludeProvinces.has(province)) { skipFile(); filtered++; continue }
@@ -126,7 +131,8 @@ async function main() {
 
       let thumb = null, full = null
       if (!dryRun) {
-        const t = await makeThumb(base)
+        // noOriginal 时从源路径生成缩略图/大图
+        const t = await makeThumb(base, noOriginal ? src : undefined)
         thumb = t.thumb; full = t.full
       }
 
@@ -139,18 +145,16 @@ async function main() {
           taken_at: takenAt,
           lat, lng, province, city, county,
           location_name: null,
+          origin_path: src,
           size_bytes: stat.size,
           created_at: new Date().toISOString(),
         })
-        if (hasOriginCol) {
-          db.prepare('UPDATE photos SET origin_path = ? WHERE filename = ?').run(src, base)
-        }
       }
       const loc = province ? `${province} ${city || ''} ${county || ''}` : '无位置'
       console.log(`[${i + 1}/${images.length}] ✓ ${path.basename(src)} -> ${loc} ${takenAt ? takenAt.slice(0, 10) : '无时间'}`)
       ok++
     } catch (e) {
-      if (!dryRun) { try { fs.unlinkSync(dest) } catch {} }
+      if (!dryRun && !noOriginal) { try { fs.unlinkSync(dest) } catch {} }
       console.log(`[${i + 1}/${images.length}] ✗ ${path.basename(src)}: ${e.message}`)
       failed++
     }

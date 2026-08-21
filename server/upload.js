@@ -33,9 +33,10 @@ async function loadImage(src) {
   return sharp(data, { raw: { width, height, channels: 4 } })
 }
 
-export async function makeThumb(filename) {
-  const src = path.join(UPLOAD_DIR, filename)
-  const img = await loadImage(src)
+// 生成缩略图与大图。sourcePath 为原图路径；缩略图/大图写入 uploads 下
+// （默认 sourcePath = UPLOAD_DIR/filename，兼容既有调用）
+export async function makeThumb(filename, sourcePath = path.join(UPLOAD_DIR, filename)) {
+  const img = await loadImage(sourcePath)
   const base = path.basename(filename)
   const thumbName = `thumb-${base}`
   const fullName = `full-${base}`
@@ -45,10 +46,9 @@ export async function makeThumb(filename) {
   return { thumb: `thumbs/${thumbName}`, full: `full/${fullName}` }
 }
 
-// 永久旋转：按累计角度从原始文件旋转，重新生成缩略图与大图（浏览器显示用），原图保留
-export async function rotatePhoto(filename, totalDegrees) {
-  const src = path.join(UPLOAD_DIR, filename)
-  const img = await loadImage(src)
+// 永久旋转：按累计角度从源图旋转，重新生成缩略图与大图（浏览器显示用）
+export async function rotatePhoto(filename, totalDegrees, sourcePath = path.join(UPLOAD_DIR, filename)) {
+  const img = await loadImage(sourcePath)
   const base = path.basename(filename)
   const thumbName = `thumb-${base}`
   const fullName = `full-${base}`

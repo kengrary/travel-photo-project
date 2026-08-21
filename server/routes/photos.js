@@ -109,7 +109,11 @@ export function photosRouter(db, geo) {
     const current = Number(photo.rotate_deg) || 0
     const total = (current + step) % 360
     try {
-      await rotatePhoto(photo.filename, total)
+      // 若为 --no-original 导入（filename 是源路径），直接从源路径旋转
+      const sourcePath = photo.origin_path && !fs.existsSync(path.join(uploadDir, photo.filename))
+        ? photo.origin_path
+        : undefined
+      await rotatePhoto(photo.filename, total, sourcePath)
       db.prepare('UPDATE photos SET rotate_deg = ? WHERE id = ?').run(total, photo.id)
       res.json({ ok: true, id: photo.id, rotate_deg: total })
     } catch (e) {
