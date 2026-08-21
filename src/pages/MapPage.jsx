@@ -17,6 +17,7 @@ const GAODE_TILES = [
 ]
 const GAODE_STYLE = {
   version: 8,
+  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   sources: {
     gaode: {
       type: 'raster',
@@ -35,6 +36,49 @@ const GAODE_STYLE = {
 const mapState = {
   center: CENTER,
   zoom: 3.3,
+}
+
+// 用 canvas 生成图钉(teardrop)图片，注册为 MapLibre 图标
+function createPinImage() {
+  const w = 44, h = 56
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  // 图钉：上部圆 + 尖端向下（teardrop）
+  ctx.beginPath()
+  ctx.moveTo(w / 2, h)                       // 尖端
+  ctx.bezierCurveTo(w * 0.12, h * 0.72, 0, h * 0.44, w / 2, h * 0.12)
+  ctx.bezierCurveTo(w, h * 0.44, w * 0.88, h * 0.72, w / 2, h)
+  ctx.closePath()
+  // 白描边
+  ctx.lineWidth = 3
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+  // vermilion 填充
+  ctx.fillStyle = '#c8432f'
+  ctx.fill()
+  return ctx.getImageData(0, 0, w, h)
+}
+
+// 小图钉（单照片点用）
+function createSmallPinImage() {
+  const w = 24, h = 32
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.beginPath()
+  ctx.moveTo(w / 2, h)
+  ctx.bezierCurveTo(w * 0.1, h * 0.7, 0, h * 0.42, w / 2, h * 0.1)
+  ctx.bezierCurveTo(w, h * 0.42, w * 0.9, h * 0.7, w / 2, h)
+  ctx.closePath()
+  ctx.lineWidth = 2.5
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+  ctx.fillStyle = '#c8432f'
+  ctx.fill()
+  return ctx.getImageData(0, 0, w, h)
 }
 
 export default function MapPage() {
@@ -87,35 +131,35 @@ export default function MapPage() {
 
       if (!map.getSource('photo-points')) {
         map.addSource('photo-points', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } })
-        // 聚合圆圈（有 cluster 属性）
+
+        // 注册图钉图片（聚合点图标）
+        if (!map.hasImage('pin')) map.addImage('pin', createPinImage())
+        if (!map.hasImage('pin-small')) map.addImage('pin-small', createSmallPinImage())
+
+        // 聚合点：图钉图标 + 数量数字（有 cluster 属性）
         map.addLayer({
-          id: 'cluster-circle', type: 'circle', source: 'photo-points',
-          filter: ['has', 'point_count'],
-          paint: {
-            // 数量越多圆圈略大，但整体更紧凑
-            'circle-radius': ['interpolate', ['linear'], ['get', 'point_count'], 2, 12, 20, 14, 100, 16, 500, 18],
-            'circle-color': 'rgba(200, 67, 47, 0.85)',
-            'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
-          },
-        })
-        // 聚合数字
-        map.addLayer({
-          id: 'cluster-count', type: 'symbol', source: 'photo-points',
+          id: 'cluster-pin', type: 'symbol', source: 'photo-points',
           filter: ['has', 'point_count'],
           layout: {
+            'icon-image': 'pin',
+            'icon-size': ['interpolate', ['linear'], ['get', 'point_count'], 2, 0.55, 20, 0.7, 100, 0.9, 500, 1.1],
+            'icon-anchor': 'bottom', // 尖端对准坐标
             'text-field': ['get', 'point_count_abbreviated'],
             'text-size': 12,
+            'text-offset': [0, -0.35], // 数字显示在钉帽（圆）中央
             'text-allow-overlap': true,
+            'text-anchor': 'center',
           },
           paint: { 'text-color': '#fff' },
         })
-        // 单个照片点
+        // 单个照片点：小图钉
         map.addLayer({
-          id: 'photo-dot', type: 'circle', source: 'photo-points',
+          id: 'photo-dot', type: 'symbol', source: 'photo-points',
           filter: ['!', ['has', 'point_count']],
-          paint: {
-            'circle-radius': 6, 'circle-color': '#c8432f',
-            'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5,
+          layout: {
+            'icon-image': 'pin-small',
+            'icon-size': 0.5,
+            'icon-anchor': 'bottom',
           },
         })
       }
@@ -126,7 +170,7 @@ export default function MapPage() {
       if (!map._hasPinClick) {
         map._hasPinClick = true
         // 点击聚合 → 打开该聚合点覆盖照片的面板
-        map.on('click', 'cluster-circle', (e) => {
+        map.on('click', 'cluster-pin', (e) => {
           const f = e.features[0]
           const leaves = cluster.getLeaves(f.properties.cluster_id)
           const ids = new Set(leaves.map((l) => l.properties.photoId))
@@ -138,10 +182,10 @@ export default function MapPage() {
           const f = e.features[0].properties
           setSelected({ filter: { province: f.province, city: f.city, county: f.county } })
         })
-        map.on('mouseenter', ['cluster-circle', 'photo-dot'], () => {
+        map.on('mouseenter', ['cluster-pin', 'photo-dot'], () => {
           map.getCanvas().style.cursor = 'pointer'
         })
-        map.on('mouseleave', ['cluster-circle', 'photo-dot'], () => {
+        map.on('mouseleave', ['cluster-pin', 'photo-dot'], () => {
           map.getCanvas().style.cursor = ''
         })
       }
