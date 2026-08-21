@@ -29,7 +29,7 @@ export default function TimelinePage() {
       if (!monthMap.get(m).has(locKey)) monthMap.get(m).set(locKey, [])
       monthMap.get(m).get(locKey).push(p)
     }
-    // 组装为数组，年倒序、月倒序、地点按数量降序
+    // 组装为数组：年倒序、月倒序；月份内地点按该地最早拍摄时间正序（时间线直觉）
     return [...yearMap.entries()]
       .sort((a, b) => b[0] - a[0])
       .map(([year, months]) => ({
@@ -39,8 +39,11 @@ export default function TimelinePage() {
           .map(([month, locs]) => ({
             month,
             places: [...locs.entries()]
-              .map(([label, list]) => ({ label, photos: list }))
-              .sort((a, b) => b.photos.length - a.photos.length),
+              .map(([label, list]) => {
+                const sorted = [...list].sort((a, b) => new Date(a.taken_at) - new Date(b.taken_at))
+                return { label, photos: sorted, first: sorted[0].taken_at }
+              })
+              .sort((a, b) => new Date(a.first) - new Date(b.first)),
           })),
       }))
   }, [photos])
