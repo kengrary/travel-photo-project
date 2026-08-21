@@ -65,19 +65,19 @@ function drawPin(w, h, color) {
   return ctx.getImageData(0, 0, w, h)
 }
 
-// 各数量档的图钉图片（低/中/高，蓝绿色系区分）
+// 各数量档的图钉图片（低/中/高，浅蓝绿色系区分）
 function createPinImages() {
   return {
-    'pin-low': drawPin(44, 56, '#7fb3c9'),   // 数量少：浅青蓝
-    'pin-mid': drawPin(48, 62, '#2f6f8f'),   // 数量中：图册蓝
-    'pin-high': drawPin(54, 70, '#1f4e66'),  // 数量多：深靛蓝
+    'pin-low': drawPin(44, 56, '#9ec6da'),   // 数量少：很浅的青
+    'pin-mid': drawPin(48, 62, '#5b93ad'),   // 数量中：柔和蓝
+    'pin-high': drawPin(54, 70, '#3f7a97'),  // 数量多：较深的蓝（但整体偏浅）
   }
 }
 
-// 小图钉（单照片点用，图册蓝）
+// 小图钉（单照片点用，柔和蓝）
 function createSmallPinImage() {
   const w = 26, h = 34
-  return drawPin(w, h, '#2f6f8f')
+  return drawPin(w, h, '#5b93ad')
 }
 
 export default function MapPage() {
