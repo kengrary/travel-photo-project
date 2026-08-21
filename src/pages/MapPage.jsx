@@ -39,7 +39,7 @@ const mapState = {
 }
 
 // 用 canvas 生成图钉(teardrop)图片：上部半圆帽 + 底部尖端 + 钉帽中空圆环
-// 颜色随数量档变化（低=青、中=橙、高=红），钉帽中央留白给数字
+// 颜色随数量档变化（低=浅青、中=图册蓝、高=深靛蓝），钉帽中央留白给数字
 function drawPin(w, h, color) {
   const cx = w / 2, r = w / 2 - 4, capY = w / 2
   const canvas = document.createElement('canvas')
@@ -65,19 +65,19 @@ function drawPin(w, h, color) {
   return ctx.getImageData(0, 0, w, h)
 }
 
-// 各数量档的图钉图片（低/中/高，颜色区分）
+// 各数量档的图钉图片（低/中/高，蓝绿色系区分）
 function createPinImages() {
   return {
-    'pin-low': drawPin(44, 56, '#4a7fa5'),   // 数量少：青
-    'pin-mid': drawPin(48, 62, '#e08a3c'),   // 数量中：橙
-    'pin-high': drawPin(54, 70, '#c8432f'),  // 数量多：vermilion 红
+    'pin-low': drawPin(44, 56, '#7fb3c9'),   // 数量少：浅青蓝
+    'pin-mid': drawPin(48, 62, '#2f6f8f'),   // 数量中：图册蓝
+    'pin-high': drawPin(54, 70, '#1f4e66'),  // 数量多：深靛蓝
   }
 }
 
-// 小图钉（单照片点用，vermilion）
+// 小图钉（单照片点用，图册蓝）
 function createSmallPinImage() {
   const w = 26, h = 34
-  return drawPin(w, h, '#c8432f')
+  return drawPin(w, h, '#2f6f8f')
 }
 
 export default function MapPage() {
