@@ -5,6 +5,9 @@ import PhotoGrid from '../components/PhotoGrid.jsx'
 function yearOf(t) { return t ? new Date(t).getFullYear() : null }
 function monthOf(t) { return t ? new Date(t).getMonth() + 1 : null }
 
+// 统计列表里的视频数量
+const countVideos = (list) => list.reduce((n, p) => n + (p.media_type === 'video' ? 1 : 0), 0)
+
 export default function TimelinePage() {
   const [photos, setPhotos] = useState([])
   const [expanded, setExpanded] = useState(null) // { year, month, key }
@@ -86,7 +89,9 @@ export default function TimelinePage() {
                               onClick={() => setExpanded(isOpen ? null : { key: expKey })}
                             >
                               <span className="tl-place-name">{place.label}</span>
-                              <span className="tl-place-count">{place.photos.length} 张</span>
+                              <span className="tl-place-count">
+                                {place.photos.length} 张{countVideos(place.photos) > 0 ? ` · ${countVideos(place.photos)} 视频` : ''}
+                              </span>
                               <span className="tl-place-arrow">{isOpen ? '▾' : '▸'}</span>
                             </button>
                             {isOpen && (
