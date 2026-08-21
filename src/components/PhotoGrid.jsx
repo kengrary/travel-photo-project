@@ -96,7 +96,12 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhot
           ))}
         </div>
       )}
-      <Lightbox photo={lightbox} onClose={() => setLightbox(null)} onDelete={onDelete ? handleDelete : null} />
+      <Lightbox
+        photo={lightbox}
+        onClose={() => setLightbox(null)}
+        onDelete={onDelete ? handleDelete : null}
+        onRotated={(id) => setRotCount((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))}
+      />
     </>
   )
 }

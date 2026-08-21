@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fmtTime } from './PhotoGrid.jsx'
 import { rotatePhoto } from '../api.js'
 
-export default function Lightbox({ photo, onClose, onDelete }) {
+export default function Lightbox({ photo, onClose, onDelete, onRotated }) {
   const [bust, setBust] = useState(0)
   const [rotating, setRotating] = useState(false)
 
@@ -29,6 +29,7 @@ export default function Lightbox({ photo, onClose, onDelete }) {
     try {
       await rotatePhoto(photo.id, 90)
       setBust((n) => n + 1) // 刷新图片缓存
+      if (onRotated) onRotated(photo.id)
     } catch (e) {
       alert(`旋转失败：${e.message}`)
     } finally {
