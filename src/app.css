@@ -210,17 +210,21 @@ a { text-decoration: none; color: inherit; }
 .photo-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--line-strong); }
 .photo-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
 
-/* 垃圾桶删除按钮（右上角，悬浮显示） */
-.photo-delete {
-  position: absolute; top: 8px; right: 8px; z-index: 2;
+/* 缩略图操作按钮（右上角，悬浮显示） */
+.photo-actions { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
+.photo-delete, .photo-rotate {
   width: 30px; height: 30px; border: none; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92); color: #c0392b;
+  background: rgba(255, 255, 255, 0.92);
   font-size: 15px; line-height: 1; cursor: pointer;
   opacity: 0; transition: opacity 0.15s, background 0.15s, transform 0.15s;
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  display: flex; align-items: center; justify-content: center;
 }
-.photo-card:hover .photo-delete { opacity: 1; }
+.photo-card:hover .photo-delete, .photo-card:hover .photo-rotate { opacity: 1; }
+.photo-delete { color: #c0392b; }
 .photo-delete:hover { background: #c0392b; color: #fff; transform: scale(1.1); }
+.photo-rotate { color: #2f4a63; }
+.photo-rotate:hover { background: #2f4a63; color: #fff; transform: scale(1.1); }
 .photo-cap {
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: 28px 10px 9px; font-size: 12px; letter-spacing: 0.3px; color: #fbf7ec;
