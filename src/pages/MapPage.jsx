@@ -179,7 +179,7 @@ export default function MapPage() {
         // 点击聚合 → 打开该聚合点覆盖照片的面板
         map.on('click', 'cluster-pin', (e) => {
           const f = e.features[0]
-          const leaves = cluster.getLeaves(f.properties.cluster_id)
+          const leaves = cluster.getLeaves(f.properties.cluster_id, Infinity)
           const ids = new Set(leaves.map((l) => l.properties.photoId))
           const fullPhotos = phs.filter((p) => ids.has(p.id))
           setSelected({ photos: fullPhotos, label: `${fullPhotos.length} 张照片` })
@@ -241,7 +241,7 @@ export default function MapPage() {
   }, [])
 
   const total = photos.filter((p) => p.lat != null).length
-  const visited = new Set(photos.map((p) => p.province)).size
+  const visited = new Set(photos.map((p) => p.province).filter(Boolean)).size
 
   return (
     <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
