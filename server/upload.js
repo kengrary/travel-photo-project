@@ -113,6 +113,15 @@ export async function probeVideo(srcPath) {
 // 视频入库资产：转码 720p H.264 MP4（浏览器可播）+ 抽帧海报（缩略图/大图）
 // 有 NVIDIA GPU 时用 NVENC 硬件加速，否则 CPU libx264
 // 返回 { video: 'xxx.mp4'(uploads 相对), thumb, full, duration }
+// 抽海报帧：优先第 1 秒，取不到帧（如视频不足 1 秒）时回退首帧
+async function extractPoster(ffPath, videoPath, width, dest) {
+  try {
+    await execFileAsync(ffPath, ['-y', '-ss', '1', '-i', videoPath, '-frames:v', '1', '-vf', `scale=${width}:-2`, dest])
+  } catch {
+    await execFileAsync(ffPath, ['-y', '-i', videoPath, '-frames:v', '1', '-vf', `scale=${width}:-2`, dest])
+  }
+}
+
 export async function makeVideoAssets(baseName, sourcePath) {
   const videoName = `${path.basename(baseName, path.extname(baseName))}.mp4`
   const destVideo = path.join(UPLOAD_DIR, videoName)
@@ -141,18 +150,12 @@ export async function makeVideoAssets(baseName, sourcePath) {
       ])
     } else throw e
   }
-  // 海报帧：从转码产物第 1 秒抽帧
+  // 海报帧：从转码产物第 1 秒抽帧（视频不足 1 秒时回退首帧）
   const base = path.basename(videoName)
   const thumbName = `thumb-${base}.jpg`
   const fullName = `full-${base}.jpg`
-  await execFileAsync(ff.path, [
-    '-y', '-ss', '1', '-i', destVideo, '-frames:v', '1',
-    '-vf', 'scale=600:-2', path.join(THUMB_DIR, thumbName),
-  ])
-  await execFileAsync(ff.path, [
-    '-y', '-ss', '1', '-i', destVideo, '-frames:v', '1',
-    '-vf', 'scale=1600:-2', path.join(FULL_DIR, fullName),
-  ])
+  await extractPoster(ff.path, destVideo, 600, path.join(THUMB_DIR, thumbName))
+  await extractPoster(ff.path, destVideo, 1600, path.join(FULL_DIR, fullName))
   const { duration } = await probeVideo(destVideo)
   return { video: videoName, thumb: `thumbs/${thumbName}`, full: `full/${fullName}`, duration }
 }
