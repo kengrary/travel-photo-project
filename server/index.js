@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { openDb } from './db.js'
 import { loadGeoIndex, reverseGeocode } from './geocode.js'
 import { photosRouter } from './routes/photos.js'
+import { writeAuthGuard } from './auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -21,6 +22,8 @@ const geo = loadGeoIndex()
 
 app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')))
 app.use('/data', express.static(path.resolve(__dirname, 'data/geojson')))
+// 写操作鉴权（设置 ACCESS_TOKEN 环境变量后启用）
+app.use('/api/photos', writeAuthGuard)
 app.use('/api/photos', photosRouter(db, geo))
 
 // 逆地理编码：根据经纬度反查省市县
