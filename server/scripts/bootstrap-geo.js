@@ -1,7 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { GEO_DIR as OUT } from '../paths.js'
+import { GEO_DIR as OUT, BASE_DIR } from '../paths.js'
 fs.mkdirSync(OUT, { recursive: true })
+
+const FONT_DIR = path.join(BASE_DIR, 'public', 'fonts', 'Noto Sans Regular')
 
 const BASE = 'https://geo.datav.aliyun.com/areas_v3/bound'
 const SLEEP_MS = 120
@@ -92,6 +94,23 @@ async function main() {
 
   save('index.json', index)
   console.log('index entries:', index.length)
+
+  // 地图聚合数字所需字形切片（本地化，摆脱对 demotiles.maplibre.org 的运行时依赖）
+  // 聚合数字只需 ASCII 数字/拉丁字符，取前几个 range 即可
+  fs.mkdirSync(FONT_DIR, { recursive: true })
+  const RANGES = ['0-255', '256-511', '512-767']
+  for (const range of RANGES) {
+    const dest = path.join(FONT_DIR, `${range}.pbf`)
+    if (fs.existsSync(dest) && fs.statSync(dest).size > 0) continue
+    try {
+      const res = await fetch(`https://demotiles.maplibre.org/font/Noto%20Sans%20Regular/${range}.pbf`)
+      if (!res.ok) { console.warn('skip font', range, res.status); continue }
+      fs.writeFileSync(dest, Buffer.from(await res.arrayBuffer()))
+      console.log('saved fonts', range)
+    } catch (e) {
+      console.warn('skip font', range, e.message) // 字体下载失败不阻断边界数据流程
+    }
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1) })

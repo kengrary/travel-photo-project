@@ -9,3 +9,4 @@ server/data/app.db-wal
 *.log
 .DS_Store
 backups/
+public/fonts/

@@ -17,7 +17,8 @@ const GAODE_TILES = [
 ]
 const GAODE_STYLE = {
   version: 8,
-  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+  // 字形切片由 bootstrap:geo 本地化到 public/fonts（见 server/index.js 的 /fonts 挂载）
+  glyphs: '/fonts/{fontstack}/{range}.pbf',
   sources: {
     gaode: {
       type: 'raster',
@@ -152,6 +153,7 @@ export default function MapPage() {
             'icon-size': ['interpolate', ['linear'], ['get', 'point_count'], 2, 0.6, 20, 0.75, 100, 0.95, 500, 1.15],
             'icon-anchor': 'bottom', // 尖端对准坐标
             'text-field': ['get', 'point_count_abbreviated'],
+            'text-font': ['Noto Sans Regular'],
             'text-size': 12,
             'text-offset': [0, 0.15], // 数字居中于钉帽中空圆环
             'text-allow-overlap': true,

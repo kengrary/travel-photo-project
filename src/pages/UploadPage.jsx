@@ -13,6 +13,7 @@ const GAODE_TILES = [
 ]
 const GAODE_STYLE = {
   version: 8,
+  glyphs: '/fonts/{fontstack}/{range}.pbf',
   sources: {
     gaode: { type: 'raster', tiles: GAODE_TILES, tileSize: 256, maxzoom: 18, attribution: '© 高德地图' },
   },

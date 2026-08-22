@@ -6,7 +6,7 @@ import { loadGeoIndex, reverseGeocode } from './geocode.js'
 import { photosRouter } from './routes/photos.js'
 import { importRouter } from './routes/import.js'
 import { writeAuthGuard } from './auth.js'
-import { GEO_DIR, UPLOAD_DIR, DIST_DIR } from './paths.js'
+import { GEO_DIR, UPLOAD_DIR, DIST_DIR, BASE_DIR } from './paths.js'
 
 const app = express()
 app.use(express.json())
@@ -22,6 +22,8 @@ const geo = loadGeoIndex()
 
 app.use('/uploads', express.static(UPLOAD_DIR))
 app.use('/data', express.static(GEO_DIR))
+// 地图字形切片（bootstrap:geo 下载到 public/fonts；生产态直接由后端提供，无需重新构建）
+app.use('/fonts', express.static(path.join(BASE_DIR, 'public', 'fonts')))
 // 写操作鉴权（设置 ACCESS_TOKEN 环境变量后启用）
 app.use('/api/photos', writeAuthGuard)
 app.use('/api/photos', photosRouter(db, geo))
