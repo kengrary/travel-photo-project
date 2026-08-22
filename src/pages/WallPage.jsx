@@ -141,11 +141,19 @@ export default function WallPage() {
   }
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }
 
-  // 判断某张照片能否落到此目标（补位置或补时间）
+  // 判断某张照片能否落到此目标：与当前归属不同即可（拖到地点分组=改地点，拖到月份=改时间）
   const moveAllowed = (target, p) => {
     if (!target || !p) return false
-    if (target.type === 'location') return !p.province
-    if (target.type === 'time') return !monthKey(p.taken_at)
+    if (target.type === 'location') {
+      const same = (p.province || null) === (target.province || null)
+        && (p.city || null) === (target.city || null)
+        && (p.county || null) === (target.county || null)
+      return !same
+    }
+    if (target.type === 'time') {
+      // 「未填写时间」组不接受拖入（不支持通过拖拽清空时间）
+      return target.key !== 'unknown' && monthKey(p.taken_at) !== target.key
+    }
     return false
   }
   // 拖拽中 或 点击移动中的照片
@@ -214,7 +222,7 @@ export default function WallPage() {
           <h1 className="page-title">{title}</h1>
           <p className="page-sub">
             {photos.length} 张照片{place ? ` · 拍摄于 ${place}` : ''}
-            {!place && <span style={{ fontWeight: 'normal', color: 'var(--ink-soft)' }}> · 按位置分组，未填写位置/时间的可拖拽到对应分组补充</span>}
+            {!place && <span style={{ fontWeight: 'normal', color: 'var(--ink-soft)' }}> · 拖拽照片到其他分组可修改地点，拖到月份上可修改拍摄时间</span>}
           </p>
         </div>
       </div>
@@ -250,8 +258,7 @@ export default function WallPage() {
       {movingPhoto && (
         <div className="move-banner">
           <span>
-            正在移动「<b>{movingPhoto.original_name}</b>」— 点击高亮的分组完成{!movingPhoto.province ? '归位' : '补时间'}
-            {(!movingPhoto.province && !monthKey(movingPhoto.taken_at)) ? '（位置或时间任选其一）' : ''}
+            正在移动「<b>{movingPhoto.original_name}</b>」— 点击高亮的分组完成移动（改为该组的地点或时间）
           </span>
           <button className="btn btn-ghost" onClick={() => setMovingPhoto(null)}>取消移动</button>
         </div>
@@ -280,7 +287,7 @@ export default function WallPage() {
                 <header className="wall-group-head">
                   <h2 className="wall-group-title">{g.label}</h2>
                   <span className="wall-group-sub">
-                    {g.photos.length} 张照片{countVideos(g.photos) > 0 ? ` · ${countVideos(g.photos)} 个视频` : ''}{locDroppable && !g.province ? ' · 可拖入照片补充位置' : ''}
+                    {g.photos.length} 张照片{countVideos(g.photos) > 0 ? ` · ${countVideos(g.photos)} 个视频` : ''}
                   </span>
                 </header>
                 {g.sub.map((sub) => {
