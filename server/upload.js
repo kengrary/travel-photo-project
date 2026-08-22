@@ -113,13 +113,20 @@ export async function probeVideo(srcPath) {
 // 视频入库资产：转码 720p H.264 MP4（浏览器可播）+ 抽帧海报（缩略图/大图）
 // 有 NVIDIA GPU 时用 NVENC 硬件加速，否则 CPU libx264
 // 返回 { video: 'xxx.mp4'(uploads 相对), thumb, full, duration }
-// 抽海报帧：优先第 1 秒，取不到帧（如视频不足 1 秒）时回退首帧
+// 抽海报帧：优先第 1 秒，取不到帧（如视频不足 1 秒）时回退首帧。
+// 注意：部分 ffmpeg 版本 seek 越界时退出码为 0 但不写文件，因此以产物存在且非空判定成功
 async function extractPoster(ffPath, videoPath, width, dest) {
-  try {
-    await execFileAsync(ffPath, ['-y', '-ss', '1', '-i', videoPath, '-frames:v', '1', '-vf', `scale=${width}:-2`, dest])
-  } catch {
-    await execFileAsync(ffPath, ['-y', '-i', videoPath, '-frames:v', '1', '-vf', `scale=${width}:-2`, dest])
+  const attempts = [
+    ['-y', '-ss', '1', '-i', videoPath, '-frames:v', '1', '-vf', `scale=${width}:-2`, dest],
+    ['-y', '-i', videoPath, '-frames:v', '1', '-vf', `scale=${width}:-2`, dest],
+  ]
+  for (const args of attempts) {
+    try { await execFileAsync(ffPath, args) } catch { /* 尝试下一种方式 */ }
+    try {
+      if (fs.statSync(dest).size > 0) return
+    } catch { /* 文件未生成，重试 */ }
   }
+  throw new Error(`海报帧抽取失败: ${dest}`)
 }
 
 export async function makeVideoAssets(baseName, sourcePath) {
