@@ -8,3 +8,4 @@ server/data/app.db-shm
 server/data/app.db-wal
 *.log
 .DS_Store
+backups/

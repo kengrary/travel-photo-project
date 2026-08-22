@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { fetchPhotos, deletePhoto, updatePhotoMeta } from '../api.js'
+import { fetchPhotosPaged, deletePhoto, updatePhotoMeta } from '../api.js'
 import PhotoGrid from '../components/PhotoGrid.jsx'
 
 function monthKey(t) {
@@ -38,6 +38,8 @@ export default function WallPage() {
   const [searchText, setSearchText] = useState(params.get('q') || '')
   const [fromDate, setFromDate] = useState(params.get('from') || '')
   const [toDate, setToDate] = useState(params.get('to') || '')
+  const [total, setTotal] = useState(0)
+  const PAGE_SIZE = 300
 
   const filter = {
     province: params.get('province') || undefined,
@@ -70,9 +72,19 @@ export default function WallPage() {
 
   useEffect(() => {
     let ignore = false
-    fetchPhotos(filter).then((p) => { if (!ignore) setPhotos(p) })
+    setTotal(0)
+    fetchPhotosPaged(filter, PAGE_SIZE, 0).then((d) => {
+      if (!ignore) { setPhotos(d.photos); setTotal(d.total) }
+    })
     return () => { ignore = true }
   }, [params.toString()])
+
+  // 加载更多（分页渐进加载）
+  const loadMore = async () => {
+    const d = await fetchPhotosPaged(filter, PAGE_SIZE, photos.length)
+    setPhotos((list) => [...list, ...d.photos])
+    setTotal(d.total)
+  }
 
   // 位置 → 时间 二级嵌套分组
   const groups = useMemo(() => {
@@ -307,6 +319,14 @@ export default function WallPage() {
             )
           })}
           {updating && <p className="wall-group-sub" style={{ marginTop: 12 }}>更新中…</p>}
+        </div>
+      )}
+
+      {photos.length < total && (
+        <div style={{ textAlign: 'center', margin: '18px 0 30px' }}>
+          <button className="btn btn-ghost" onClick={loadMore}>
+            加载更多（已显示 {photos.length} / 共 {total} 张）
+          </button>
         </div>
       )}
     </div>

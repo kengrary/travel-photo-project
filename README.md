@@ -18,6 +18,16 @@ npm run dev             # 或 npm run build && npm run start
 
 照片及其缩略图保存在本地（SQLite `server/data/app.db` 和 `uploads/`），不上传任何外部服务。
 
+## 可选：访问令牌
+
+部署到公网时建议设置环境变量 `ACCESS_TOKEN`，上传/删除/修改等写操作需携带令牌（浏览器首次遇到 401 会弹窗输入，保存在 sessionStorage）：
+
+```bash
+ACCESS_TOKEN=你的令牌 npm start
+```
+
+不设置则所有操作无需鉴权（个人本地使用无需配置）。
+
 ## 脚本
 
 | 命令 | 说明 |
@@ -27,6 +37,7 @@ npm run dev             # 或 npm run build && npm run start
 | `npm start` | 启动生产服务 |
 | `npm test` | 运行服务端测试 |
 | `npm run bootstrap:geo` | 下载中国边界数据到 `server/data/geojson/` |
+| `npm run backup` | 备份数据库 + 照片文件到 `backups/` |
 
 ## 批量导入本地照片
 
@@ -55,6 +66,7 @@ node server/scripts/import-photos.js /path/to/照片目录 --ext heic
 node server/scripts/import-photos.js /path/to/照片目录 --ext heic,jpg
 ```
 
-- 递归扫描目录下的 jpg/jpeg/png/heic/heif/webp/gif/bmp/tif 等图片
+- 递归扫描目录下的 jpg/jpeg/png/heic/heif/webp/gif/bmp/tif 等图片，以及 mov/mp4/m4v 视频
+- 视频自动转码 720p MP4 + 海报帧（与网页上传一致），GPS 取自拍摄元数据
 - 有 GPS 的照片自动反查省市县；无 GPS 的归入"未知位置"（可在地图/照片墙手动补）
 - 已导入过的文件（按来源路径）会自动跳过，可安全重复运行

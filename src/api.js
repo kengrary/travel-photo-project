@@ -1,10 +1,38 @@
-async function j(res) { const d = await res.json(); if (!res.ok) throw new Error(d.error || res.status); return d }
+// 401 时引导输入访问令牌（配合服务端 ACCESS_TOKEN 环境变量）
+async function j(res) {
+  const d = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    if (res.status === 401 && !sessionStorage.getItem('access_token')) {
+      const t = window.prompt('服务端已开启访问令牌，请输入 ACCESS_TOKEN：')
+      if (t != null && t !== '') {
+        sessionStorage.setItem('access_token', t)
+        throw new Error('令牌已保存，请重试刚才的操作')
+      }
+    }
+    throw new Error(d.error || res.status)
+  }
+  return d
+}
 
-export const fetchLocations = () => fetch('/api/photos/locations').then(j).then((d) => d.locations)
+// 写操作请求头：附带已保存的令牌
+function authHeaders(extra = {}) {
+  const t = sessionStorage.getItem('access_token')
+  return t ? { ...extra, 'x-access-token': t } : extra
+}
+
 export const fetchPhotos = (filter = {}) => {
   const q = new URLSearchParams()
   for (const k of ['province', 'city', 'county', 'orderBy', 'q', 'from', 'to']) if (filter[k]) q.set(k, filter[k])
   return fetch(`/api/photos?${q}`).then(j).then((d) => d.photos)
+}
+
+// 分页查询，返回 { photos, total }
+export const fetchPhotosPaged = (filter = {}, limit = 300, offset = 0) => {
+  const q = new URLSearchParams()
+  for (const k of ['province', 'city', 'county', 'orderBy', 'q', 'from', 'to']) if (filter[k]) q.set(k, filter[k])
+  q.set('limit', String(limit))
+  q.set('offset', String(offset))
+  return fetch(`/api/photos?${q}`).then(j)
 }
 // 逐张顺序上传，onProgress(done, total) 汇报进度；单张失败不影响其余
 export const uploadPhotos = async (files, onProgress) => {
@@ -14,7 +42,7 @@ export const uploadPhotos = async (files, onProgress) => {
     const fd = new FormData()
     fd.append('photos', list[i])
     try {
-      const d = await fetch('/api/photos', { method: 'POST', body: fd }).then(j)
+      const d = await fetch('/api/photos', { method: 'POST', headers: authHeaders(), body: fd }).then(j)
       if (d.photos.length) results.push(...d.photos)
       else results.push({ original_name: list[i].name, error: '上传失败' })
     } catch (e) {
@@ -25,12 +53,12 @@ export const uploadPhotos = async (files, onProgress) => {
   return results
 }
 export const setPhotoLocation = (id, loc) =>
-  fetch(`/api/photos/${id}/location`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loc) }).then(j).then((d) => d.photo)
+  fetch(`/api/photos/${id}/location`, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(loc) }).then(j).then((d) => d.photo)
 export const deletePhoto = (id) =>
-  fetch(`/api/photos/${id}`, { method: 'DELETE' }).then(j)
+  fetch(`/api/photos/${id}`, { method: 'DELETE', headers: authHeaders() }).then(j)
 export const updatePhotoMeta = (id, fields) =>
-  fetch(`/api/photos/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }).then(j).then((d) => d.photo)
+  fetch(`/api/photos/${id}`, { method: 'PATCH', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify(fields) }).then(j).then((d) => d.photo)
 export const rotatePhoto = (id, degrees) =>
-  fetch(`/api/photos/${id}/rotate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ degrees }) }).then(j)
+  fetch(`/api/photos/${id}/rotate`, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ degrees }) }).then(j)
 export const reverseGeocode = (lat, lng) =>
   fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`).then(j)
