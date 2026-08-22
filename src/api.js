@@ -3,13 +3,26 @@ async function j(res) { const d = await res.json(); if (!res.ok) throw new Error
 export const fetchLocations = () => fetch('/api/photos/locations').then(j).then((d) => d.locations)
 export const fetchPhotos = (filter = {}) => {
   const q = new URLSearchParams()
-  for (const k of ['province', 'city', 'county', 'orderBy']) if (filter[k]) q.set(k, filter[k])
+  for (const k of ['province', 'city', 'county', 'orderBy', 'q', 'from', 'to']) if (filter[k]) q.set(k, filter[k])
   return fetch(`/api/photos?${q}`).then(j).then((d) => d.photos)
 }
-export const uploadPhotos = (files) => {
-  const fd = new FormData()
-  for (const f of files) fd.append('photos', f)
-  return fetch('/api/photos', { method: 'POST', body: fd }).then(j).then((d) => d.photos)
+// 逐张顺序上传，onProgress(done, total) 汇报进度；单张失败不影响其余
+export const uploadPhotos = async (files, onProgress) => {
+  const list = [...files]
+  const results = []
+  for (let i = 0; i < list.length; i++) {
+    const fd = new FormData()
+    fd.append('photos', list[i])
+    try {
+      const d = await fetch('/api/photos', { method: 'POST', body: fd }).then(j)
+      if (d.photos.length) results.push(...d.photos)
+      else results.push({ original_name: list[i].name, error: '上传失败' })
+    } catch (e) {
+      results.push({ original_name: list[i].name, error: e.message })
+    }
+    if (onProgress) onProgress(i + 1, list.length)
+  }
+  return results
 }
 export const setPhotoLocation = (id, loc) =>
   fetch(`/api/photos/${id}/location`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(loc) }).then(j).then((d) => d.photo)

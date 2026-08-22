@@ -23,14 +23,25 @@ export function fmtDuration(s) {
   return m > 0 ? `${m}:${String(sec).padStart(2, '0')}` : `0:${String(sec).padStart(2, '0')}`
 }
 
-export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhotoDragStart }) {
-  const [lightbox, setLightbox] = useState(null)
+export default function PhotoGrid({
+  photos, onEmpty, onDelete, onDeleted, onPhotoDragStart,
+  selectMode, selectedIds, onToggleSelect, onMove,
+}) {
+  const [lightboxIdx, setLightboxIdx] = useState(null)
   const [rotCount, setRotCount] = useState({})
+
+  // 索引可能因列表变化越界，越界视为关闭
+  const lbPhoto = lightboxIdx != null ? photos[lightboxIdx] : null
+
+  const navLightbox = (delta) => setLightboxIdx((i) => {
+    if (i == null || photos.length === 0) return null
+    return (i + delta + photos.length) % photos.length
+  })
 
   const handleDelete = async (photo) => {
     try {
       await onDelete(photo.id)
-      setLightbox(null)
+      setLightboxIdx(null)
       if (onDeleted) onDeleted(photo.id)
     } catch (e) {
       alert(`删除失败：${e.message}`)
@@ -69,11 +80,22 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhot
           {photos.map((p) => (
             <div
               key={p.id}
-              className={`photo-card${onPhotoDragStart ? ' draggable' : ''}`}
-              onClick={() => setLightbox(p)}
-              draggable={!!onPhotoDragStart}
-              onDragStart={onPhotoDragStart ? (e) => onPhotoDragStart(e, p) : undefined}
+              className={[
+                'photo-card',
+                onPhotoDragStart && !selectMode ? ' draggable' : '',
+                selectMode && selectedIds?.has(p.id) ? ' selected' : '',
+                selectMode ? ' selectable' : '',
+              ].join('')}
+              onClick={() => {
+                if (selectMode && onToggleSelect) onToggleSelect(p)
+                else setLightboxIdx(photos.indexOf(p))
+              }}
+              draggable={!!onPhotoDragStart && !selectMode}
+              onDragStart={onPhotoDragStart && !selectMode ? (e) => onPhotoDragStart(e, p) : undefined}
             >
+              {selectMode && (
+                <span className={`photo-check${selectedIds?.has(p.id) ? ' on' : ''}`}>{selectedIds?.has(p.id) ? '✓' : ''}</span>
+              )}
               {p.media_type === 'video' ? (
                 <video
                   src={`/uploads/${p.filename}`}
@@ -102,6 +124,16 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhot
                 >
                   🗑
                 </button>
+                {onMove && !selectMode && (
+                  <button
+                    className="photo-move"
+                    title="移动到其他分组（补位置/补时间）"
+                    aria-label="移动到其他分组"
+                    onClick={(e) => { e.stopPropagation(); onMove(p) }}
+                  >
+                    ⇄
+                  </button>
+                )}
                 {p.media_type !== 'video' && (
                   <button
                     className="photo-rotate"
@@ -118,10 +150,12 @@ export default function PhotoGrid({ photos, onEmpty, onDelete, onDeleted, onPhot
         </div>
       )}
       <Lightbox
-        photo={lightbox}
-        onClose={() => setLightbox(null)}
+        photo={lbPhoto}
+        onClose={() => setLightboxIdx(null)}
         onDelete={onDelete ? handleDelete : null}
         onRotated={(id) => setRotCount((c) => ({ ...c, [id]: (c[id] || 0) + 1 }))}
+        onPrev={photos.length > 1 ? () => navLightbox(-1) : null}
+        onNext={photos.length > 1 ? () => navLightbox(1) : null}
       />
     </>
   )

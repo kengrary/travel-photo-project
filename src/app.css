@@ -112,6 +112,21 @@ a { text-decoration: none; color: inherit; }
 .page-sub { color: var(--ink-soft); font-size: 14px; margin-top: 6px; letter-spacing: 0.3px; }
 
 /* ---- 照片墙分组 ---- */
+.wall-filters { display: flex; gap: 10px; align-items: center; margin: 14px 0 22px; flex-wrap: wrap; }
+.wall-filter-input {
+  padding: 8px 14px; border-radius: var(--radius); min-width: 220px;
+  border: 1px solid var(--line-strong); background: transparent; color: inherit;
+  font: inherit;
+}
+.wall-filter-input:focus { outline: none; border-color: var(--vermillion); }
+.wall-filter-dates { display: inline-flex; align-items: center; gap: 6px; }
+.wall-filter-dates input {
+  padding: 7px 10px; border-radius: var(--radius);
+  border: 1px solid var(--line-strong); background: transparent; color: inherit;
+  font: inherit; color-scheme: dark light;
+}
+.wall-filter-sep { color: var(--ink-soft); }
+
 .wall-groups { display: flex; flex-direction: column; gap: 28px; }
 .wall-group-head {
   display: flex; align-items: baseline; gap: 10px;
@@ -212,7 +227,7 @@ a { text-decoration: none; color: inherit; }
 
 /* 缩略图操作按钮（右上角，悬浮显示） */
 .photo-actions { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
-.photo-delete, .photo-rotate {
+.photo-delete, .photo-rotate, .photo-move {
   width: 30px; height: 30px; border: none; border-radius: 50%;
   background: rgba(255, 255, 255, 0.92);
   font-size: 15px; line-height: 1; cursor: pointer;
@@ -220,10 +235,34 @@ a { text-decoration: none; color: inherit; }
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
   display: flex; align-items: center; justify-content: center;
 }
-.photo-card:hover .photo-delete, .photo-card:hover .photo-rotate { opacity: 1; }
+.photo-card:hover .photo-delete, .photo-card:hover .photo-rotate, .photo-card:hover .photo-move { opacity: 1; }
 .photo-delete { color: #c0392b; }
 .photo-delete:hover { background: #c0392b; color: #fff; transform: scale(1.1); }
 .photo-rotate { color: #2f4a63; }
+.photo-move { color: #6b5d3f; }
+.photo-move:hover { background: #6b5d3f; color: #fff; transform: scale(1.1); }
+
+/* 批量管理模式 */
+.photo-card.selectable { cursor: pointer; }
+.photo-card.selected { outline: 3px solid var(--vermillion); outline-offset: -3px; border-radius: var(--radius); }
+.photo-check {
+  position: absolute; top: 8px; left: 8px; z-index: 2;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid #fff; background: rgba(0,0,0,0.35);
+  color: #fff; font-size: 15px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.photo-card.selected .photo-check { background: var(--vermillion); }
+
+/* 点击式移动提示条（手机端补位） */
+.move-banner {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 16px; margin-bottom: 18px;
+  border: 1px dashed var(--vermillion); border-radius: var(--radius);
+  background: rgba(200, 67, 47, 0.08);
+  font-size: 14px;
+}
 .photo-rotate:hover { background: #2f4a63; color: #fff; transform: scale(1.1); }
 .photo-cap {
   position: absolute; left: 0; right: 0; bottom: 0;
@@ -268,6 +307,22 @@ a { text-decoration: none; color: inherit; }
 }
 .lightbox-actions .btn-ghost { color: #e7e0d0; border-color: rgba(231,224,208,0.4); background: transparent; }
 .lightbox-actions .btn-ghost:hover { border-color: #fff; color: #fff; }
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 101;
+  width: 52px; height: 52px; border-radius: 50%;
+  border: 1px solid rgba(231,224,208,0.35); background: rgba(32, 30, 26, 0.6);
+  color: #e7e0d0; font-size: 30px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  padding-bottom: 6px; user-select: none;
+}
+.lightbox-nav:hover { background: rgba(32, 30, 26, 0.9); color: #fff; border-color: #fff; }
+.lightbox-nav-prev { left: 22px; }
+.lightbox-nav-next { right: 22px; }
+@media (max-width: 640px) {
+  .lightbox-nav { width: 40px; height: 40px; font-size: 22px; }
+  .lightbox-nav-prev { left: 8px; }
+  .lightbox-nav-next { right: 8px; }
+}
 
 /* ---- 上传 ---- */
 .drop {

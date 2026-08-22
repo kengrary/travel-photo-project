@@ -2,17 +2,27 @@ import { useEffect, useState } from 'react'
 import { fmtTime } from './PhotoGrid.jsx'
 import { rotatePhoto } from '../api.js'
 
-export default function Lightbox({ photo, onClose, onDelete, onRotated }) {
+export default function Lightbox({ photo, onClose, onDelete, onRotated, onPrev, onNext }) {
   const [bust, setBust] = useState(0)
   const [rotating, setRotating] = useState(false)
 
   useEffect(() => {
     if (!photo) return
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft' && onPrev) onPrev()
+      if (e.key === 'ArrowRight' && onNext) onNext()
+    }
     window.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = '' }
-  }, [photo, onClose])
+  }, [photo, onClose, onPrev, onNext])
+
+  // 切换照片时重置旋转刷新计数
+  useEffect(() => {
+    setBust(0)
+    setRotating(false)
+  }, [photo?.id])
 
   if (!photo) return null
 
@@ -39,14 +49,21 @@ export default function Lightbox({ photo, onClose, onDelete, onRotated }) {
 
   const fullSrc = `${photo.full_path ? `/uploads/${photo.full_path}` : `/uploads/${photo.filename}`}?t=${bust}`
   const isVideo = photo.media_type === 'video'
+  const hasNav = Boolean(onPrev || onNext)
 
   return (
     <div className="lightbox" onClick={onClose}>
+      {hasNav && onPrev && (
+        <button className="lightbox-nav lightbox-nav-prev" aria-label="上一张" onClick={(e) => { e.stopPropagation(); onPrev() }}>‹</button>
+      )}
+      {hasNav && onNext && (
+        <button className="lightbox-nav lightbox-nav-next" aria-label="下一张" onClick={(e) => { e.stopPropagation(); onNext() }}>›</button>
+      )}
       <div className="lightbox-inner" onClick={(e) => e.stopPropagation()}>
         {isVideo ? (
-          <video src={`/uploads/${photo.filename}`} poster={fullSrc} controls autoPlay />
+          <video key={photo.id} src={`/uploads/${photo.filename}`} poster={fullSrc} controls autoPlay />
         ) : (
-          <img src={fullSrc} alt={photo.original_name} />
+          <img key={photo.id} src={fullSrc} alt={photo.original_name} />
         )}
         <div className="lightbox-meta">
           <strong>{photo.original_name}</strong><br />

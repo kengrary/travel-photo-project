@@ -23,6 +23,7 @@ export default function UploadPage() {
   const [files, setFiles] = useState([])
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(null) // { done, total }
   const [result, setResult] = useState([])
   const [manualTarget, setManualTarget] = useState(null)
   const [locateQueue, setLocateQueue] = useState([]) // 等待手动定位的照片队列
@@ -58,8 +59,9 @@ export default function UploadPage() {
 
   const doUpload = async () => {
     setUploading(true)
+    setProgress(null)
     try {
-      const photos = await uploadPhotos(files)
+      const photos = await uploadPhotos(files, (done, total) => setProgress({ done, total }))
       setResult(photos)
       const needs = photos.filter((p) => p.id && !p.province)
       locateQueueRef.current = needs
@@ -160,11 +162,18 @@ export default function UploadPage() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 20, alignItems: 'center' }}>
         <button className="btn btn-primary" onClick={doUpload} disabled={uploading || files.length === 0}>
-          {uploading ? '上传中…' : `上传 ${files.length || ''} 张照片`.trim()}
+          {uploading
+            ? `上传中${progress ? ` ${progress.done}/${progress.total}` : '…'}`
+            : `上传 ${files.length || ''} 张照片`.trim()}
         </button>
         <button className="btn btn-ghost" onClick={() => navigate('/wall')}>查看照片墙</button>
+        {uploading && progress && (
+          <span className="chip" style={{ padding: '6px 12px' }}>
+            {progress.done < progress.total ? `正在处理第 ${progress.done + 1} 张（视频转码较慢，请稍候）` : '处理中…'}
+          </span>
+        )}
       </div>
 
       {manualTarget && (

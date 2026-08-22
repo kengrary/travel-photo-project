@@ -22,17 +22,50 @@ function monthValue(key) {
 const countVideos = (list) => list.reduce((n, p) => n + (p.media_type === 'video' ? 1 : 0), 0)
 
 export default function WallPage() {
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const [photos, setPhotos] = useState([])
   const [draggedPhoto, setDraggedPhoto] = useState(null)
   const [dragOverKey, setDragOverKey] = useState(null)
   const [updating, setUpdating] = useState(false)
   const dragCount = useRef(0)
+  // 点击式移动（手机端补位）：待移动的照片
+  const [movingPhoto, setMovingPhoto] = useState(null)
+  // 批量管理模式
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
+
+  // 筛选输入（本地状态，防抖同步到 URL 参数）
+  const [searchText, setSearchText] = useState(params.get('q') || '')
+  const [fromDate, setFromDate] = useState(params.get('from') || '')
+  const [toDate, setToDate] = useState(params.get('to') || '')
 
   const filter = {
     province: params.get('province') || undefined,
     city: params.get('city') || undefined,
     county: params.get('county') || undefined,
+    q: params.get('q') || undefined,
+    from: params.get('from') || undefined,
+    to: params.get('to') || undefined,
+  }
+  const hasFilters = Boolean(filter.q || filter.from || filter.to)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = new URLSearchParams(params)
+      for (const [k, v] of [['q', searchText.trim()], ['from', fromDate], ['to', toDate]]) {
+        if (v) next.set(k, v)
+        else next.delete(k)
+      }
+      if (next.toString() !== params.toString()) setParams(next)
+    }, 300)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchText, fromDate, toDate])
+
+  const clearFilters = () => {
+    setSearchText('')
+    setFromDate('')
+    setToDate('')
   }
 
   useEffect(() => {
@@ -96,21 +129,19 @@ export default function WallPage() {
   }
   const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }
 
-  // 判断能否落在此目标（补位置或补时间）
-  const canDropHere = (target) => {
-    if (!draggedPhoto) return false
-    if (target.type === 'location') return !draggedPhoto.province
-    if (target.type === 'time') return !monthKey(draggedPhoto.taken_at)
+  // 判断某张照片能否落到此目标（补位置或补时间）
+  const moveAllowed = (target, p) => {
+    if (!target || !p) return false
+    if (target.type === 'location') return !p.province
+    if (target.type === 'time') return !monthKey(p.taken_at)
     return false
   }
+  // 拖拽中 或 点击移动中的照片
+  const activeMoving = draggedPhoto || movingPhoto
 
-  const handleDrop = async (e, target) => {
-    e.preventDefault()
-    dragCount.current = 0
-    setDragOverKey(null)
-    const p = draggedPhoto
-    setDraggedPhoto(null)
-    if (!p || !canDropHere(target)) return
+  const applyMove = async (target, photo) => {
+    const p = photo || movingPhoto
+    if (!moveAllowed(target, p)) return
     setUpdating(true)
     try {
       let fields = {}
@@ -119,11 +150,48 @@ export default function WallPage() {
       const updated = await updatePhotoMeta(p.id, fields)
       // 更新本地列表，让照片移动到正确分组
       setPhotos((list) => list.map((x) => (x.id === p.id ? { ...x, ...updated } : x)))
+      setMovingPhoto(null)
     } catch (err) {
       alert(`更新失败：${err.message}`)
     } finally {
       setUpdating(false)
     }
+  }
+
+  const handleDrop = async (e, target) => {
+    e.preventDefault()
+    dragCount.current = 0
+    setDragOverKey(null)
+    const p = draggedPhoto
+    setDraggedPhoto(null)
+    if (!p) return
+    await applyMove(target, p)
+  }
+
+  // ---- 批量管理 ----
+  const toggleSelect = (photo) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(photo.id)) next.delete(photo.id)
+      else next.add(photo.id)
+      return next
+    })
+  }
+
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()) }
+
+  const handleBatchDelete = async () => {
+    if (!selectedIds.size) return
+    if (!window.confirm(`确定删除所选的 ${selectedIds.size} 张照片吗？此操作不可恢复。`)) return
+    setUpdating(true)
+    const ids = [...selectedIds]
+    const results = await Promise.allSettled(ids.map((id) => deletePhoto(id)))
+    const failed = ids.filter((_, i) => results[i].status === 'rejected')
+    const done = ids.filter((_, i) => results[i].status === 'fulfilled')
+    setPhotos((list) => list.filter((x) => !done.includes(x.id))) // 仅移除成功的，失败的保留
+    setSelectedIds(new Set(failed))
+    setUpdating(false)
+    if (failed.length) alert(`${failed.length} 张删除失败，请重试`)
   }
 
   return (
@@ -139,6 +207,44 @@ export default function WallPage() {
         </div>
       </div>
 
+      <div className="wall-filters">
+        <input
+          className="wall-filter-input"
+          placeholder="搜索地点或文件名…"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+        <span className="wall-filter-dates">
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} aria-label="开始日期" />
+          <span className="wall-filter-sep">~</span>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} aria-label="结束日期" />
+        </span>
+        {hasFilters && (
+          <button className="btn btn-ghost" onClick={clearFilters}>清除筛选</button>
+        )}
+        <span style={{ flex: 1 }} />
+        {!selectMode && photos.length > 0 && (
+          <button className="btn btn-ghost" onClick={() => setSelectMode(true)}>批量管理</button>
+        )}
+        {selectMode && (
+          <>
+            <span className="wall-group-sub">已选 {selectedIds.size} 张</span>
+            <button className="btn btn-delete" disabled={selectedIds.size === 0} onClick={handleBatchDelete}>删除所选</button>
+            <button className="btn btn-ghost" onClick={exitSelectMode}>退出批量</button>
+          </>
+        )}
+      </div>
+
+      {movingPhoto && (
+        <div className="move-banner">
+          <span>
+            正在移动「<b>{movingPhoto.original_name}</b>」— 点击高亮的分组完成{!movingPhoto.province ? '归位' : '补时间'}
+            {(!movingPhoto.province && !monthKey(movingPhoto.taken_at)) ? '（位置或时间任选其一）' : ''}
+          </span>
+          <button className="btn btn-ghost" onClick={() => setMovingPhoto(null)}>取消移动</button>
+        </div>
+      )}
+
       {photos.length === 0 ? (
         <div className="empty">
           <div className="empty-title">这里还没有照片</div>
@@ -148,11 +254,12 @@ export default function WallPage() {
         <div className="wall-groups">
           {groups.map((g) => {
             const locTarget = { type: 'location', key: g.label, province: g.province, city: g.city, county: g.county }
-            const locDroppable = canDropHere(locTarget)
+            const locDroppable = moveAllowed(locTarget, activeMoving)
             return (
               <section
                 key={g.label}
                 className={`wall-group${locDroppable ? ' droppable' : ''}${dragOverKey === g.label ? ' drag-over' : ''}`}
+                onClick={() => { if (moveAllowed(locTarget, movingPhoto)) applyMove(locTarget) }}
                 onDragEnter={(e) => handleDragEnter(e, g.label)}
                 onDragLeave={(e) => handleDragLeave(e, g.label)}
                 onDragOver={handleDragOver}
@@ -166,11 +273,14 @@ export default function WallPage() {
                 </header>
                 {g.sub.map((sub) => {
                   const timeTarget = { type: 'time', key: sub.key, label: sub.label }
-                  const timeDroppable = canDropHere(timeTarget)
+                  const timeDroppable = moveAllowed(timeTarget, activeMoving)
                   return (
                     <section
                       key={sub.key}
                       className={`wall-subgroup${timeDroppable ? ' droppable' : ''}${dragOverKey === sub.key ? ' drag-over' : ''}`}
+                      onClick={(e) => {
+                        if (moveAllowed(timeTarget, movingPhoto)) { e.stopPropagation(); applyMove(timeTarget) }
+                      }}
                       onDragEnter={(e) => handleDragEnter(e, sub.key)}
                       onDragLeave={(e) => handleDragLeave(e, sub.key)}
                       onDragOver={handleDragOver}
@@ -184,7 +294,11 @@ export default function WallPage() {
                         photos={sub.photos}
                         onDelete={deletePhoto}
                         onDeleted={handleDeleted}
-                        onPhotoDragStart={handleDragStart}
+                        onPhotoDragStart={selectMode ? undefined : handleDragStart}
+                        selectMode={selectMode}
+                        selectedIds={selectedIds}
+                        onToggleSelect={toggleSelect}
+                        onMove={setMovingPhoto}
                       />
                     </section>
                   )
