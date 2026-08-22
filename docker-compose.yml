@@ -1,0 +1,18 @@
+services:
+  travel-photo-map:
+    build: .
+    image: travel-photo-map
+    container_name: travel-photo-map
+    ports:
+      - "3000:3000"
+    environment:
+      # 可选：设置后上传/删除/修改需要令牌（浏览器首次会弹窗输入）
+      - ACCESS_TOKEN=${ACCESS_TOKEN:-}
+      # 可选：自定义数据库路径（容器内默认 /app/server/data/app.db）
+      # - DB_PATH=/data/app.db
+    volumes:
+      # SQLite 数据库 + 边界数据（首次启动自动下载到此处）
+      - ./server/data:/app/server/data
+      # 照片原图/缩略图/大图
+      - ./uploads:/app/uploads
+    restart: unless-stopped

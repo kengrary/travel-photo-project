@@ -1,0 +1,14 @@
+node_modules
+dist
+uploads
+backups
+server/data
+.git
+.github
+.opencode
+.cortexkit
+.superpowers
+docs
+*.log
+Dockerfile
+docker-compose.yml

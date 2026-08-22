@@ -3,6 +3,12 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "自托管旅行照片地图：照片按 GPS 自动定位到省/市/县，在地图上回顾你的旅行足迹。照片全本地存储。",
+  "license": "MIT",
+  "author": "dev",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "node --watch server/index.js",

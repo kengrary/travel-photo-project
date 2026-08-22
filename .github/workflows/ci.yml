@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # 测试依赖边界数据（routes.test.js 会加载 GeoJSON 索引）
+      - run: npm run bootstrap:geo
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
