@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { openDb, insertPhoto, listPhotos, countByLocation, getPhoto, updateLocation, updatePhotoMeta, deletePhoto } from './db.js'
+import { openDb, insertPhoto, listPhotos, getPhoto, updateLocation, updatePhotoMeta, deletePhoto } from './db.js'
 
 function makeDb() {
   return openDb(':memory:')
@@ -25,15 +25,6 @@ test('list filters by province', () => {
   const rows = listPhotos(db, { province: '广东省' })
   assert.equal(rows.length, 1)
   assert.equal(rows[0].filename, 'a.jpg')
-})
-
-test('count by location', () => {
-  const db = makeDb()
-  insertPhoto(db, { filename: 'a.jpg', province: '广东省', city: '广州市', county: '天河区', created_at: 'x' })
-  insertPhoto(db, { filename: 'b.jpg', province: '广东省', city: '广州市', county: '天河区', created_at: 'y' })
-  insertPhoto(db, { filename: 'c.jpg', province: '广东省', city: '深圳市', county: '', created_at: 'z' })
-  const counts = countByLocation(db)
-  assert.deepEqual(counts.find((r) => r.county === '天河区').count, 2)
 })
 
 test('update location', () => {

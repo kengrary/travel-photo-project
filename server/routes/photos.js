@@ -2,7 +2,7 @@ import { Router } from 'express'
 import exifr from 'exifr'
 import path from 'node:path'
 import fs from 'node:fs'
-import { insertPhoto, listPhotos, countByLocation, updateLocation, updatePhotoMeta, deletePhoto, getPhoto } from '../db.js'
+import { insertPhoto, listPhotos, countPhotos, updateLocation, updatePhotoMeta, deletePhoto, getPhoto } from '../db.js'
 import { upload, makeThumb, rotatePhoto, uploadDir, isVideoFile, probeVideo, makeVideoAssets } from '../upload.js'
 import { reverseGeocode } from '../geocode.js'
 
@@ -86,12 +86,15 @@ export function photosRouter(db, geo) {
     const filter = {
       province: req.query.province, city: req.query.city, county: req.query.county,
       orderBy: req.query.orderBy,
+      q: req.query.q, from: req.query.from, to: req.query.to,
+    }
+    // 分页：带 limit 时返回 total，供前端"加载更多"
+    if (Number(req.query.limit) > 0) {
+      filter.limit = Number(req.query.limit)
+      filter.offset = Number(req.query.offset) || 0
+      return res.json({ photos: listPhotos(db, filter), total: countPhotos(db, filter) })
     }
     res.json({ photos: listPhotos(db, filter) })
-  })
-
-  router.get('/locations', (req, res) => {
-    res.json({ locations: countByLocation(db) })
   })
 
   router.post('/:id/location', (req, res) => {

@@ -59,23 +59,35 @@ export function getPhoto(db, id) {
   return db.prepare('SELECT * FROM photos WHERE id = ?').get(id)
 }
 
-export function listPhotos(db, filter = {}) {
+// 按筛选条件构造 WHERE 子句与参数（listPhotos / countPhotos 共用）
+function buildWhere(filter = {}) {
   const conds = []
   const params = {}
   if (filter.province) { conds.push('province = @province'); params.province = filter.province }
   if (filter.city) { conds.push('city = @city'); params.city = filter.city }
   if (filter.county) { conds.push('county = @county'); params.county = filter.county }
-  const where = conds.length ? 'WHERE ' + conds.join(' AND ') : ''
-  const order = filter.orderBy === 'location' ? 'province, city, county, taken_at DESC' : 'taken_at DESC'
-  return db.prepare(`SELECT * FROM photos ${where} ORDER BY ${order}`).all(params)
+  // 关键词：匹配文件名/地点名/省市县
+  if (filter.q) {
+    conds.push('(original_name LIKE @q OR location_name LIKE @q OR province LIKE @q OR city LIKE @q OR county LIKE @q)')
+    params.q = `%${filter.q}%`
+  }
+  // 时间段：按日期部分（YYYY-MM-DD）比较，含边界日
+  if (filter.from) { conds.push('substr(taken_at, 1, 10) >= @from'); params.from = filter.from }
+  if (filter.to) { conds.push('substr(taken_at, 1, 10) <= @to'); params.to = filter.to }
+  return { whereSql: conds.length ? 'WHERE ' + conds.join(' AND ') : '', params }
 }
 
-export function countByLocation(db) {
-  return db.prepare(`
-    SELECT province, city, county, COUNT(*) as count
-    FROM photos
-    GROUP BY province, city, county
-  `).all()
+export function listPhotos(db, filter = {}) {
+  const { whereSql, params } = buildWhere(filter)
+  // 分页：limit>0 时生效，offset 缺省为 0（数字强转防注入）
+  const limitSql = filter.limit > 0 ? ` LIMIT ${Math.floor(Number(filter.limit))} OFFSET ${Math.floor(Number(filter.offset) || 0)}` : ''
+  const order = filter.orderBy === 'location' ? 'province, city, county, taken_at DESC' : 'taken_at DESC'
+  return db.prepare(`SELECT * FROM photos ${whereSql} ORDER BY ${order}${limitSql}`).all(params)
+}
+
+export function countPhotos(db, filter = {}) {
+  const { whereSql, params } = buildWhere(filter)
+  return db.prepare(`SELECT COUNT(*) AS n FROM photos ${whereSql}`).get(params).n
 }
 
 export function updateLocation(db, id, loc) {
