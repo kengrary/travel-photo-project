@@ -167,10 +167,11 @@ a { text-decoration: none; color: inherit; }
 .import-row:hover { background: rgba(0,0,0,0.04); }
 .import-row.dup { opacity: 0.55; }
 .import-row.err { color: #b3402f; }
-.import-row-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.import-row-name { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.import-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tag-dup, .tag-err {
-  font-style: normal; font-size: 11px; margin-left: 8px; padding: 1px 6px;
-  border-radius: 8px; border: 1px solid currentColor;
+  font-style: normal; font-size: 11px; padding: 1px 8px;
+  border-radius: 9px; border: 1px solid currentColor; white-space: nowrap; flex-shrink: 0;
 }
 .import-row-meta { flex-shrink: 0; color: var(--ink-soft); font-size: 12px; }
 

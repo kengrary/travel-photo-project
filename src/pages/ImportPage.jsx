@@ -230,7 +230,11 @@ export default function ImportPage() {
                         checked={selected.has(it.filePath)}
                         onChange={() => togglePaths([it.filePath])}
                       />
-                      <span className="import-row-name">{it.fileName}{it.duplicate && <em className="tag-dup">已导入</em>}{it.error && <em className="tag-err">{it.error}</em>}</span>
+                      <span className="import-row-name">
+                        <span className="import-row-title">{it.fileName}</span>
+                        {it.duplicate && <em className="tag-dup">已导入</em>}
+                        {it.error && <em className="tag-err">{it.error}</em>}
+                      </span>
                       <span className="import-row-meta">
                         {[it.province, it.city, it.county].filter(Boolean).join(' ') || '无位置'} · {fmtDate(it.takenAt)} · {fmtSize(it.sizeBytes)}
                         {it.mediaType === 'video' && it.duration ? ` · ${Math.round(it.duration)}s` : ''}
