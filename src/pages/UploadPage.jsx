@@ -25,12 +25,29 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false)
   const [result, setResult] = useState([])
   const [manualTarget, setManualTarget] = useState(null)
+  const [locateQueue, setLocateQueue] = useState([]) // 等待手动定位的照片队列
   const [picked, setPicked] = useState(null)
   const mapRef = useRef(null)
   const mapContainer = useRef(null)
   const markerRef = useRef(null)
   const fileInput = useRef(null)
+  const locateQueueRef = useRef([]) // 与 locateQueue 同步，回调里读最新值
   const navigate = useNavigate()
+
+  // 当前这张定位完成/跳过后，自动进入队列中的下一张
+  const advanceLocate = (currentId) => {
+    const rest = locateQueueRef.current.filter((p) => p.id !== currentId)
+    locateQueueRef.current = rest
+    setLocateQueue(rest)
+    setManualTarget(rest[0] || null)
+    setPicked(null)
+  }
+
+  // 从结果列表重新打开某张的定位地图
+  const reopenLocate = (p) => {
+    setManualTarget(p)
+    setPicked(null)
+  }
 
   const onSelect = (e) => setFiles([...e.target.files])
   const onDrop = (e) => {
@@ -45,6 +62,8 @@ export default function UploadPage() {
       const photos = await uploadPhotos(files)
       setResult(photos)
       const needs = photos.filter((p) => p.id && !p.province)
+      locateQueueRef.current = needs
+      setLocateQueue(needs)
       if (needs.length) {
         setManualTarget(needs[0])
         setPicked(null)
@@ -91,14 +110,16 @@ export default function UploadPage() {
 
   const confirmLocation = async () => {
     if (!manualTarget || manualTarget._lat == null) return
-    const photo = await setPhotoLocation(manualTarget.id, { lat: manualTarget._lat, lng: manualTarget._lng })
-    alert('已更新地点')
-    // 更新结果列表中的该照片为已定位
-    if (photo && photo.province) {
-      setResult((list) => list.map((p) => (p.id === photo.id ? { ...p, ...photo } : p)))
+    try {
+      const photo = await setPhotoLocation(manualTarget.id, { lat: manualTarget._lat, lng: manualTarget._lng })
+      // 更新结果列表中的该照片为已定位
+      if (photo && photo.province) {
+        setResult((list) => list.map((p) => (p.id === photo.id ? { ...p, ...photo } : p)))
+      }
+    } catch (err) {
+      alert(`定位失败：${err.message}`)
     }
-    setManualTarget(null)
-    setPicked(null)
+    advanceLocate(manualTarget.id)
   }
 
   return (
@@ -149,6 +170,7 @@ export default function UploadPage() {
       {manualTarget && (
         <div style={{ marginTop: 26 }}>
           <p className="page-sub" style={{ marginBottom: 8 }}>
+            {locateQueue.length > 1 && <>待定位 {locateQueue.length} 张 · </>}
             照片「<b style={{ color: 'var(--ink)' }}>{manualTarget.original_name}</b>」无法自动定位，请在地图上点击它的拍摄位置：
           </p>
           <div ref={mapContainer} style={{ width: '100%', height: 420, borderRadius: 'var(--radius)', overflow: 'hidden' }} />
@@ -160,6 +182,9 @@ export default function UploadPage() {
             </span>
             <button className="btn btn-primary" onClick={confirmLocation} disabled={manualTarget._lat == null}>
               确认此地点
+            </button>
+            <button className="btn btn-ghost" onClick={() => advanceLocate(manualTarget.id)}>
+              跳过此张
             </button>
           </div>
         </div>
@@ -177,7 +202,20 @@ export default function UploadPage() {
                     ? `定位失败：${p.error}`
                     : p.province
                       ? `已定位 ${p.province} ${p.city || ''} ${p.county || ''}`
-                      : '已上传，等待手动定位'}
+                      : (
+                        <>
+                          已上传，等待手动定位
+                          {p.id && (
+                            <button
+                              className="btn btn-ghost"
+                              style={{ marginLeft: 8, padding: '2px 10px', fontSize: 12 }}
+                              onClick={() => reopenLocate(p)}
+                            >
+                              定位
+                            </button>
+                          )}
+                        </>
+                      )}
                 </span>
               </div>
             ))}
