@@ -6,6 +6,10 @@
   "description": "自托管旅行照片地图：照片按 GPS 自动定位到省/市/县，在地图上回顾你的旅行足迹。照片全本地存储。",
   "license": "MIT",
   "author": "dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kengrary/travel-photo-project.git"
+  },
   "engines": {
     "node": ">=18"
   },
