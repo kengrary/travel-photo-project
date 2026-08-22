@@ -1,9 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const OUT = path.resolve(__dirname, '../data/geojson')
+import { GEO_DIR as OUT } from '../paths.js'
 fs.mkdirSync(OUT, { recursive: true })
 
 const BASE = 'https://geo.datav.aliyun.com/areas_v3/bound'

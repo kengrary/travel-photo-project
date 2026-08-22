@@ -1,9 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const GEO_DIR = path.resolve(__dirname, 'data/geojson')
+import { GEO_DIR } from './paths.js'
 
 // 射线法 point-in-polygon（支持 ring 数组 [ [lng,lat], ... ]）
 function pointInRing(lng, lat, ring) {

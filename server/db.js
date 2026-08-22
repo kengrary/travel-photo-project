@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3'
 import path from 'node:path'
 import fs from 'node:fs'
+import { DB_PATH as DEFAULT_DB_PATH } from './paths.js'
 
-export function openDb(dbPath = process.env.DB_PATH || path.resolve('server/data/app.db')) {
+export function openDb(dbPath = DEFAULT_DB_PATH) {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true })
   const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
