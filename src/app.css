@@ -114,18 +114,22 @@ a { text-decoration: none; color: inherit; }
 /* ---- 照片墙分组 ---- */
 .wall-filters { display: flex; gap: 10px; align-items: center; margin: 14px 0 22px; flex-wrap: wrap; }
 .wall-filter-input {
-  padding: 8px 14px; border-radius: var(--radius); min-width: 220px;
+  height: 42px; padding: 0 14px; min-width: 220px;
+  border-radius: var(--radius);
   border: 1px solid var(--line-strong); background: transparent; color: inherit;
-  font: inherit;
+  font: inherit; box-sizing: border-box;
 }
 .wall-filter-input:focus { outline: none; border-color: var(--vermillion); }
 .wall-filter-dates { display: inline-flex; align-items: center; gap: 6px; }
 .wall-filter-dates input {
-  padding: 7px 10px; border-radius: var(--radius);
+  height: 42px; padding: 0 10px; box-sizing: border-box;
+  border-radius: var(--radius);
   border: 1px solid var(--line-strong); background: transparent; color: inherit;
   font: inherit; color-scheme: dark light;
 }
 .wall-filter-sep { color: var(--ink-soft); }
+/* 筛选栏内按钮统一 42px 高，并抵消 .btn-delete 自带的 margin-top（那是给 Lightbox 用的） */
+.wall-filters .btn { height: 42px; padding-top: 0; padding-bottom: 0; margin-top: 0; }
 
 .wall-groups { display: flex; flex-direction: column; gap: 28px; }
 .wall-group-head {
