@@ -54,8 +54,8 @@ export function photosRouter(db, geo) {
         }
         let storedName = file.filename, thumb, full
         if (isVideo) {
-          // 视频：转码 720p MP4 + 海报帧（转码产物替换原上传文件）
-          const a = await makeVideoAssets(file.filename, file.path)
+          // 视频：转码 MP4 + 海报帧（转码产物替换原上传文件）；videoScale=original 保持原分辨率
+          const a = await makeVideoAssets(file.filename, file.path, { keepOriginalResolution: req.body.videoScale === 'original' })
           storedName = a.video; thumb = a.thumb; full = a.full; duration = a.duration
           try { fs.unlinkSync(file.path) } catch {}
         } else {

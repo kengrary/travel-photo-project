@@ -1,18 +1,17 @@
 import multer from 'multer'
 import path from 'node:path'
 import fs from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import sharp from 'sharp'
 import heicDecode from 'heic-decode'
 import ffmpegPath from 'ffmpeg-static'
 import ffprobePath from 'ffprobe-static'
+import { UPLOAD_DIR as UPLOADS_DIR, BASE_DIR } from './paths.js'
 
 const execFileAsync = promisify(execFile)
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const UPLOAD_DIR = path.resolve(__dirname, '../uploads')
+const UPLOAD_DIR = UPLOADS_DIR
 const THUMB_DIR = path.join(UPLOAD_DIR, 'thumbs')
 const FULL_DIR = path.join(UPLOAD_DIR, 'full')
 fs.mkdirSync(THUMB_DIR, { recursive: true })
@@ -110,9 +109,6 @@ export async function probeVideo(srcPath) {
   return { lat: pos?.lat ?? null, lng: pos?.lng ?? null, takenAt, duration }
 }
 
-// 视频入库资产：转码 720p H.264 MP4（浏览器可播）+ 抽帧海报（缩略图/大图）
-// 有 NVIDIA GPU 时用 NVENC 硬件加速，否则 CPU libx264
-// 返回 { video: 'xxx.mp4'(uploads 相对), thumb, full, duration }
 // 抽海报帧：优先第 1 秒，取不到帧（如视频不足 1 秒）时回退首帧。
 // 注意：部分 ffmpeg 版本 seek 越界时退出码为 0 但不写文件，因此以产物存在且非空判定成功
 async function extractPoster(ffPath, videoPath, width, dest) {
@@ -129,15 +125,20 @@ async function extractPoster(ffPath, videoPath, width, dest) {
   throw new Error(`海报帧抽取失败: ${dest}`)
 }
 
-export async function makeVideoAssets(baseName, sourcePath) {
+// 视频入库资产：转码 H.264 MP4（浏览器可播）+ 抽帧海报（缩略图/大图）
+// 默认降为宽 1280（省空间）；opts.keepOriginalResolution 保持原分辨率
+// 有 NVIDIA GPU 时用 NVENC 硬件加速，否则 CPU libx264
+// 返回 { video: 'xxx.mp4'(uploads 相对), thumb, full, duration }
+export async function makeVideoAssets(baseName, sourcePath, { keepOriginalResolution = false } = {}) {
   const videoName = `${path.basename(baseName, path.extname(baseName))}.mp4`
   const destVideo = path.join(UPLOAD_DIR, videoName)
   const ff = await resolveFfmpeg()
-  // 转码：最长边 1280 的 H.264 + AAC，faststart 便于边下边播
+  const scaleArgs = keepOriginalResolution ? [] : ['-vf', "scale='min(1280,iw)':-2"]
+  // 转码：H.264 + AAC，faststart 便于边下边播
   const args = ['-y']
   if (ff.gpu) args.push('-hwaccel', 'cuda')
   args.push('-i', sourcePath,
-    '-vf', "scale='min(1280,iw)':-2",
+    ...scaleArgs,
     '-c:v', ff.gpu ? 'h264_nvenc' : 'libx264',
     '-preset', ff.gpu ? 'p4' : 'medium', '-crf', '23',
     '-c:a', 'aac', '-b:a', '128k',
@@ -149,7 +150,7 @@ export async function makeVideoAssets(baseName, sourcePath) {
     if (ff.gpu) {
       await execFileAsync(ffmpegPath, [
         '-y', '-i', sourcePath,
-        '-vf', "scale='min(1280,iw)':-2",
+        ...scaleArgs,
         '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
         '-c:a', 'aac', '-b:a', '128k',
         '-movflags', '+faststart',

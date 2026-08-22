@@ -6,9 +6,18 @@ import os from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import ffmpegPath from 'ffmpeg-static'
-import { makeVideoAssets, uploadDir } from './upload.js'
+import ffprobeStatic from 'ffprobe-static'
+import { makeVideoAssets, probeVideo, uploadDir } from './upload.js'
 
 const execFileAsync = promisify(execFile)
+
+// 读视频宽度（验证分辨率选项）
+async function videoWidth(filePath) {
+  const { stdout } = await execFileAsync(ffprobeStatic.path, [
+    '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'v:0', filePath,
+  ])
+  return JSON.parse(stdout).streams[0].width
+}
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-test-'))
 const created = [] // 记录 makeVideoAssets 产物，测试后清理
 
@@ -31,6 +40,8 @@ async function genClip(dest, duration) {
 before(async () => {
   await genClip(path.join(tmpDir, 'short.mp4'), 0.4)
   await genClip(path.join(tmpDir, 'normal.mp4'), 3)
+  // 大尺寸片段：验证默认降分辨率与保持原分辨率
+  await execFileAsync(ffmpegPath, ['-y', '-f', 'lavfi', '-i', 'testsrc=duration=0.5:size=1920x1080:rate=10', '-pix_fmt', 'yuv420p', path.join(tmpDir, 'big.mp4')])
 })
 
 after(() => {
@@ -53,4 +64,16 @@ test('makeVideoAssets 对不足 1 秒的视频仍能生成有效海报帧', asyn
     assert.ok(fs.existsSync(full), `${p} 应存在`)
     assert.ok(fs.statSync(full).size > 1000, `${p} 应是有效的 JPEG（>1KB）`)
   }
+})
+
+test('makeVideoAssets 默认将大视频降为 1280 宽', async () => {
+  const r = await makeVideoAssets(`t-big-${Date.now()}.mp4`, path.join(tmpDir, 'big.mp4'))
+  created.push(...assetPaths(r.video))
+  assert.equal(await videoWidth(path.join(uploadDir, r.video)), 1280)
+})
+
+test('makeVideoAssets keepOriginalResolution 保持原分辨率', async () => {
+  const r = await makeVideoAssets(`t-bigorig-${Date.now()}.mp4`, path.join(tmpDir, 'big.mp4'), { keepOriginalResolution: true })
+  created.push(...assetPaths(r.video))
+  assert.equal(await videoWidth(path.join(uploadDir, r.video)), 1920)
 })
