@@ -1,30 +1,33 @@
 import express from 'express'
 import path from 'node:path'
 import fs from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { openDb } from './db.js'
 import { loadGeoIndex, reverseGeocode } from './geocode.js'
 import { photosRouter } from './routes/photos.js'
+import { importRouter } from './routes/import.js'
 import { writeAuthGuard } from './auth.js'
+import { GEO_DIR, UPLOAD_DIR, DIST_DIR } from './paths.js'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const app = express()
 app.use(express.json())
 
 const db = openDb()
 
-const geoFile = path.resolve(__dirname, 'data/geojson/100000_full.json')
+const geoFile = path.join(GEO_DIR, '100000_full.json')
 if (!fs.existsSync(geoFile)) {
   console.error('边界数据未初始化，请先运行 npm run bootstrap:geo')
   process.exit(1)
 }
 const geo = loadGeoIndex()
 
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')))
-app.use('/data', express.static(path.resolve(__dirname, 'data/geojson')))
+app.use('/uploads', express.static(UPLOAD_DIR))
+app.use('/data', express.static(GEO_DIR))
 // 写操作鉴权（设置 ACCESS_TOKEN 环境变量后启用）
 app.use('/api/photos', writeAuthGuard)
 app.use('/api/photos', photosRouter(db, geo))
+// 批量导入：扫描为只读但暴露文件系统信息，导入为写操作，统一纳入鉴权
+app.use('/api/import', writeAuthGuard)
+app.use('/api/import', importRouter(db, geo))
 
 // 逆地理编码：根据经纬度反查省市县
 app.get('/api/geocode/reverse', (req, res) => {
@@ -39,7 +42,7 @@ app.get('/api/geocode/reverse', (req, res) => {
 
 app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }))
 
-const distDir = path.resolve(__dirname, '../dist')
+const distDir = DIST_DIR
 app.use(express.static(distDir))
 app.get('*', (req, res) => res.sendFile(path.join(distDir, 'index.html')))
 

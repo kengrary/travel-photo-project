@@ -35,12 +35,14 @@ export const fetchPhotosPaged = (filter = {}, limit = 300, offset = 0) => {
   return fetch(`/api/photos?${q}`).then(j)
 }
 // 逐张顺序上传，onProgress(done, total) 汇报进度；单张失败不影响其余
-export const uploadPhotos = async (files, onProgress) => {
+// opts.keepOriginalResolution 视频不降为 720p（multipart 字段 videoScale=original）
+export const uploadPhotos = async (files, onProgress, opts = {}) => {
   const list = [...files]
   const results = []
   for (let i = 0; i < list.length; i++) {
     const fd = new FormData()
     fd.append('photos', list[i])
+    if (opts.keepOriginalResolution) fd.append('videoScale', 'original')
     try {
       const d = await fetch('/api/photos', { method: 'POST', headers: authHeaders(), body: fd }).then(j)
       if (d.photos.length) results.push(...d.photos)
@@ -62,3 +64,15 @@ export const rotatePhoto = (id, degrees) =>
   fetch(`/api/photos/${id}/rotate`, { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ degrees }) }).then(j)
 export const reverseGeocode = (lat, lng) =>
   fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`).then(j)
+
+// ---- 批量导入（服务器路径扫描 → 统计 → 选择 → 导入）----
+export const scanImport = (dir) =>
+  fetch('/api/import/scan', { method: 'POST', headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ path: dir }) }).then(j)
+export const getImportJob = (id) =>
+  fetch(`/api/import/jobs/${id}`, { headers: authHeaders() }).then(j)
+export const startImport = ({ jobId, originPaths, noOriginal, keepOriginalResolution }) =>
+  fetch('/api/import/start', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ jobId, originPaths, noOriginal, keepOriginalResolution }),
+  }).then(j)

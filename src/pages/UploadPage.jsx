@@ -24,6 +24,7 @@ export default function UploadPage() {
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(null) // { done, total }
+  const [keepRes, setKeepRes] = useState(false) // 视频保持原分辨率（默认降 720p）
   const [result, setResult] = useState([])
   const [manualTarget, setManualTarget] = useState(null)
   const [locateQueue, setLocateQueue] = useState([]) // 等待手动定位的照片队列
@@ -61,7 +62,7 @@ export default function UploadPage() {
     setUploading(true)
     setProgress(null)
     try {
-      const photos = await uploadPhotos(files, (done, total) => setProgress({ done, total }))
+      const photos = await uploadPhotos(files, (done, total) => setProgress({ done, total }), { keepOriginalResolution: keepRes })
       setResult(photos)
       const needs = photos.filter((p) => p.id && !p.province)
       locateQueueRef.current = needs
@@ -175,6 +176,11 @@ export default function UploadPage() {
           </span>
         )}
       </div>
+
+      <label className="import-check" style={{ marginTop: 10 }} title="默认转码为 720p 以节省空间；保持原分辨率画质更佳但文件明显更大">
+        <input type="checkbox" checked={keepRes} onChange={(e) => setKeepRes(e.target.checked)} />
+        视频保持原分辨率（默认降为 720p 以节省空间）
+      </label>
 
       {manualTarget && (
         <div style={{ marginTop: 26 }}>

@@ -130,6 +130,66 @@ a { text-decoration: none; color: inherit; }
 /* 筛选栏内按钮统一 42px 高，并抵消 .btn-delete 自带的 margin-top（那是给 Lightbox 用的） */
 .wall-filters .btn { height: 42px; padding-top: 0; padding-bottom: 0; margin-top: 0; }
 
+/* ---- 批量导入 ---- */
+.import-stats { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 18px; }
+.stat-chip {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 10px 18px; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  min-width: 86px;
+}
+.stat-chip b { font-size: 20px; }
+.stat-chip span { font-size: 12px; color: var(--ink-soft); }
+.stat-chip.warn b { color: #b06f1f; }
+.stat-chip.muted b { color: var(--ink-soft); }
+
+.import-provinces { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 18px; }
+.province-card {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+  padding: 10px 14px; border: 1px solid var(--line-strong); border-radius: var(--radius);
+  background: transparent; text-align: left; cursor: pointer; font: inherit;
+}
+.province-card:hover { border-color: var(--vermillion); }
+.province-card span { font-size: 12px; color: var(--ink-soft); }
+
+.import-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 90px; }
+.import-group { border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
+.import-group > summary {
+  list-style: none; cursor: pointer; padding: 10px 14px;
+  display: flex; align-items: center; gap: 6px; background: rgba(0,0,0,0.03);
+}
+.import-group > summary::-webkit-details-marker { display: none; }
+.group-toggle { margin-left: auto; height: 28px !important; padding: 0 10px !important; font-size: 12px !important; }
+.import-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 14px; border-top: 1px solid var(--line);
+  font-size: 13px; cursor: pointer;
+}
+.import-row:hover { background: rgba(0,0,0,0.04); }
+.import-row.dup { opacity: 0.55; }
+.import-row.err { color: #b3402f; }
+.import-row-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.tag-dup, .tag-err {
+  font-style: normal; font-size: 11px; margin-left: 8px; padding: 1px 6px;
+  border-radius: 8px; border: 1px solid currentColor;
+}
+.import-row-meta { flex-shrink: 0; color: var(--ink-soft); font-size: 12px; }
+
+.import-actionbar {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 22px; z-index: 30;
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 12px 20px; border-radius: var(--radius);
+  background: var(--paper, #efe9dc); box-shadow: 0 8px 26px rgba(0,0,0,0.25);
+  border: 1px solid var(--line-strong);
+}
+.import-check { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+
+.import-progress { max-width: 560px; }
+.import-progress p { margin: 0 0 8px; }
+.bar {
+  height: 10px; border-radius: 6px; background: rgba(0,0,0,0.12); overflow: hidden;
+}
+.bar span { display: block; height: 100%; background: var(--vermillion); transition: width 0.4s; }
+
 .wall-groups { display: flex; flex-direction: column; gap: 28px; }
 .wall-group-head {
   display: flex; align-items: baseline; gap: 10px;

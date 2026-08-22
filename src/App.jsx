@@ -3,6 +3,7 @@ import MapPage from './pages/MapPage.jsx'
 import WallPage from './pages/WallPage.jsx'
 import UploadPage from './pages/UploadPage.jsx'
 import TimelinePage from './pages/TimelinePage.jsx'
+import ImportPage from './pages/ImportPage.jsx'
 import './app.css'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
           <NavLink to="/wall" className={({ isActive }) => (isActive ? 'active' : '')}>照片墙</NavLink>
           <NavLink to="/timeline" className={({ isActive }) => (isActive ? 'active' : '')}>时间轴</NavLink>
           <NavLink to="/upload" className={({ isActive }) => (isActive ? 'active' : '')}>上传</NavLink>
+          <NavLink to="/import" className={({ isActive }) => (isActive ? 'active' : '')}>批量导入</NavLink>
         </nav>
       </header>
       <Routes>
@@ -24,6 +26,7 @@ export default function App() {
         <Route path="/wall" element={<WallPage />} />
         <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/upload" element={<UploadPage />} />
+        <Route path="/import" element={<ImportPage />} />
       </Routes>
     </div>
   )
