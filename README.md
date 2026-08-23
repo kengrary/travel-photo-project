@@ -57,7 +57,8 @@ docker compose up -d          # 首次启动自动下载边界数据
 | `HOST` | `0.0.0.0` | 监听地址 |
 | `DB_PATH` | `server/data/app.db` | SQLite 数据库路径 |
 | `ACCESS_TOKEN` | 未设置 | 设置后上传/删除/修改等写操作需要令牌（请求头 `x-access-token`；浏览器首次遇到 401 会弹窗输入）。公网部署建议开启 |
-| `FFMPEG_PATH` | 自动探测 | 视频转码用的 ffmpeg 路径；默认依次探测 `~/bin/ffmpeg`、系统 `ffmpeg`、内置 ffmpeg-static |
+| `FFMPEG_PATH` | 自动探测 | 视频转码用的 ffmpeg 路径；默认依次探测包目录、`~/bin/ffmpeg`、系统 `ffmpeg`、内置 ffmpeg-static |
+| `UPLOAD_MAX_MB` | `500` | 网页上传单文件大小上限（MB） |
 
 ## 可选：访问令牌
 

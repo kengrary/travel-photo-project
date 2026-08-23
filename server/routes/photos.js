@@ -3,7 +3,7 @@ import exifr from 'exifr'
 import path from 'node:path'
 import fs from 'node:fs'
 import { insertPhoto, listPhotos, countPhotos, updateLocation, updatePhotoMeta, deletePhoto, getPhoto } from '../db.js'
-import { upload, makeThumb, rotatePhoto, uploadDir, isVideoFile, probeVideo, makeVideoAssets } from '../upload.js'
+import { upload, makeThumb, rotatePhoto, uploadDir, isVideoFile, probeVideo, makeVideoAssets, MAX_MB } from '../upload.js'
 import { reverseGeocode } from '../geocode.js'
 
 async function cleanupFile(file) {
@@ -23,7 +23,10 @@ export function photosRouter(db, geo) {
 
   router.post('/', (req, res, next) => {
     upload.array('photos', 50)(req, res, (err) => {
-      if (err) return res.status(400).json({ error: err.message })
+      if (err) {
+        const msg = err.code === 'LIMIT_FILE_SIZE' ? `文件超过 ${MAX_MB}MB 上限（可用环境变量 UPLOAD_MAX_MB 调整）` : err.message
+        return res.status(400).json({ error: msg })
+      }
       next()
     })
   }, async (req, res) => {

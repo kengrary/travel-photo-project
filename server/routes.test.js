@@ -33,11 +33,12 @@ test('POST /api/photos with empty files field returns 400 JSON', async () => {
   assert.equal(res.body.error, 'No photos uploaded')
 })
 
-test('POST /api/photos with oversized file returns 400 JSON (multer LIMIT_FILE_SIZE)', async () => {
-  const big = Buffer.alloc(30 * 1024 * 1024 + 1)
-  const res = await request(app).post('/api/photos').attach('photos', big, { filename: 'big.jpg', contentType: 'image/jpeg' })
-  assert.equal(res.status, 400)
-  assert.equal(res.body.error, 'File too large')
+test('POST /api/photos 内容损坏的图片不 500，逐条返回错误（大小上限见 upload-limit.test.js）', async () => {
+  const big = Buffer.alloc(1024 * 1024, 0)
+  const res = await request(app).post('/api/photos').attach('photos', big, { filename: 'fake.jpg', contentType: 'image/jpeg' })
+  assert.equal(res.status, 200)
+  assert.equal(res.body.photos.length, 1)
+  assert.ok(res.body.photos[0].error, '应包含逐条错误信息')
 })
 
 test('DELETE /api/photos/:id with no existing photo returns 404', async () => {

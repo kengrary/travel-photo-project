@@ -27,7 +27,12 @@ const storage = multer.diskStorage({
   },
 })
 
-export const upload = multer({ storage, limits: { fileSize: 30 * 1024 * 1024 } })
+// 单文件大小上限：UPLOAD_MAX_MB 可配置，默认 500MB（手机原分辨率视频普遍较大）
+const MAX_MB = Number(process.env.UPLOAD_MAX_MB) || 500
+export const upload = multer({
+  storage,
+  limits: { fileSize: MAX_MB * 1024 * 1024 },
+})
 
 // sharp 预编译版不含 HEVC/HEIC 解码器，需先用 heic-decode 转成原始像素
 async function loadImage(src) {
