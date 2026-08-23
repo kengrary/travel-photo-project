@@ -28,7 +28,7 @@ const storage = multer.diskStorage({
 })
 
 // 单文件大小上限：UPLOAD_MAX_MB 可配置，默认 500MB（手机原分辨率视频普遍较大）
-const MAX_MB = Number(process.env.UPLOAD_MAX_MB) || 500
+export const MAX_MB = Number(process.env.UPLOAD_MAX_MB) || 500
 export const upload = multer({
   storage,
   limits: { fileSize: MAX_MB * 1024 * 1024 },
