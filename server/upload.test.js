@@ -77,3 +77,16 @@ test('makeVideoAssets keepOriginalResolution 保持原分辨率', async () => {
   created.push(...assetPaths(r.video))
   assert.equal(await videoWidth(path.join(uploadDir, r.video)), 1920)
 })
+
+test('makeVideoAssets 输入即 .mp4（源文件已在 uploads 内）时不允许原地覆盖，自动换名', async () => {
+  // 模拟上传路由：multer 已把 .mp4 存进 uploads/<name>.mp4，再以其为源转码
+  const name = `t-inplace-${Date.now()}.mp4`
+  const srcInUploads = path.join(uploadDir, name)
+  fs.copyFileSync(path.join(tmpDir, 'short.mp4'), srcInUploads)
+  created.push(srcInUploads)
+  const r = await makeVideoAssets(name, srcInUploads)
+  created.push(...assetPaths(r.video))
+  assert.notEqual(r.video, name, '产物名必须与源名不同')
+  assert.ok(fs.existsSync(path.join(uploadDir, r.video)), '转码产物应存在')
+  assert.ok(fs.statSync(path.join(uploadDir, r.thumb)).size > 1000, '海报帧应有效')
+})

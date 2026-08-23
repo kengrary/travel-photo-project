@@ -160,8 +160,14 @@ async function extractPoster(ffPath, videoPath, width, dest) {
 // 有 NVIDIA GPU 时用 NVENC 硬件加速，否则 CPU libx264
 // 返回 { video: 'xxx.mp4'(uploads 相对), thumb, full, duration }
 export async function makeVideoAssets(baseName, sourcePath, { keepOriginalResolution = false } = {}) {
-  const videoName = `${path.basename(baseName, path.extname(baseName))}.mp4`
-  const destVideo = path.join(UPLOAD_DIR, videoName)
+  const stem = path.basename(baseName, path.extname(baseName))
+  let videoName = `${stem}.mp4`
+  let destVideo = path.join(UPLOAD_DIR, videoName)
+  // 上传的源文件本身就是 .mp4 时，multer 临时文件与产物同名，ffmpeg 禁止原地编辑 → 自动换名
+  if (path.resolve(destVideo) === path.resolve(sourcePath)) {
+    videoName = `${stem}_v.mp4`
+    destVideo = path.join(UPLOAD_DIR, videoName)
+  }
   const ff = await resolveFfmpeg()
   const scaleArgs = keepOriginalResolution ? [] : ['-vf', "scale='min(1280,iw)':-2"]
   // 转码：H.264 + AAC，faststart 便于边下边播
