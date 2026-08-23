@@ -386,6 +386,15 @@ a { text-decoration: none; color: inherit; }
   .lightbox-nav { width: 40px; height: 40px; font-size: 22px; }
   .lightbox-nav-prev { left: 8px; }
   .lightbox-nav-next { right: 8px; }
+
+  /* 顶部导航：单行紧凑化，避免小屏下文字竖排溢出固定高度的 header */
+  .appbar { padding: 0 12px; white-space: nowrap; overflow: hidden; }
+  .appbar-brand { gap: 6px; font-size: 15px; letter-spacing: 1px; white-space: nowrap; }
+  .appbar-brand small { display: none; }
+  .appbar-nav { white-space: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .appbar-nav::-webkit-scrollbar { display: none; }
+  .appbar-nav a { padding: 6px 8px; font-size: 12px; letter-spacing: 0.5px; white-space: nowrap; }
+  .appbar-nav a::after { left: 8px; right: 8px; }
 }
 
 /* ---- 上传 ---- */
