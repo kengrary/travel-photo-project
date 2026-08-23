@@ -175,15 +175,17 @@ export async function makeVideoAssets(baseName, sourcePath, { keepOriginalResolu
   }
   const ff = await resolveFfmpeg()
   const scaleArgs = keepOriginalResolution ? [] : ['-vf', "scale='min(1280,iw)':-2"]
+  // 质量：CRF/CQ 默认 18（接近视觉无损）；可 VIDEO_CRF 覆盖。
+  // 注意 h264_nvenc 用 -cq 而非 -crf（-crf 对 nvenc 无效，会失败或走默认质量）
+  const CRF = Number(process.env.VIDEO_CRF) || 18
+  const videoEncode = ff.gpu
+    ? ['-c:v', 'h264_nvenc', '-preset', 'p4', '-rc', 'vbr', '-cq', String(CRF), '-b:v', '0']
+    : ['-c:v', 'libx264', '-preset', 'medium', '-crf', String(CRF)]
+  const audioArgs = ['-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart']
   // 转码：H.264 + AAC，faststart 便于边下边播
   const args = ['-y']
   if (ff.gpu) args.push('-hwaccel', 'cuda')
-  args.push('-i', sourcePath,
-    ...scaleArgs,
-    '-c:v', ff.gpu ? 'h264_nvenc' : 'libx264',
-    '-preset', ff.gpu ? 'p4' : 'medium', '-crf', '23',
-    '-c:a', 'aac', '-b:a', '128k',
-    '-movflags', '+faststart')
+  args.push('-i', sourcePath, ...scaleArgs, ...videoEncode, ...audioArgs)
   try {
     await execFileAsync(ff.path, [...args, destVideo])
   } catch (e) {
@@ -194,9 +196,8 @@ export async function makeVideoAssets(baseName, sourcePath, { keepOriginalResolu
       await execFileAsync(ffmpegPath, [
         '-y', '-i', sourcePath,
         ...scaleArgs,
-        '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
-        '-c:a', 'aac', '-b:a', '128k',
-        '-movflags', '+faststart',
+        '-c:v', 'libx264', '-preset', 'medium', '-crf', String(CRF),
+        ...audioArgs,
         destVideo,
       ])
     } else throw e

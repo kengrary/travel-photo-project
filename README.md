@@ -59,6 +59,7 @@ docker compose up -d          # 首次启动自动下载边界数据
 | `ACCESS_TOKEN` | 未设置 | 设置后上传/删除/修改等写操作需要令牌（请求头 `x-access-token`；浏览器首次遇到 401 会弹窗输入）。公网部署建议开启 |
 | `FFMPEG_PATH` | 自动探测 | 视频转码用的 ffmpeg 路径；默认依次探测包目录、`~/bin/ffmpeg`、系统 `ffmpeg`、内置 ffmpeg-static |
 | `UPLOAD_MAX_MB` | `500` | 网页上传单文件大小上限（MB） |
+| `VIDEO_CRF` | `18` | 视频转码质量（越小越清晰越大；NVENC 用同值 CQ）。嫌马赛克就调低，嫌文件大就调高 |
 
 ## 可选：访问令牌
 
