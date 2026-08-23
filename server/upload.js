@@ -182,8 +182,10 @@ export async function makeVideoAssets(baseName, sourcePath, { keepOriginalResolu
   try {
     await execFileAsync(ff.path, [...args, destVideo])
   } catch (e) {
-    // GPU 编码失败时回退 CPU
+    // GPU 编码失败时回退 CPU，并保留失败原因便于诊断
     if (ff.gpu) {
+      const reason = String(e.stderr || '').split('\n').filter((l) => /Error|error|failed/i.test(l)).slice(-2).join(' | ') || e.message
+      console.warn(`[ffmpeg] NVENC 转码失败，回退 CPU：${reason}`)
       await execFileAsync(ffmpegPath, [
         '-y', '-i', sourcePath,
         ...scaleArgs,
