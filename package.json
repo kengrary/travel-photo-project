@@ -21,6 +21,7 @@
     "start": "node server/index.js",
     "bootstrap:geo": "node server/scripts/bootstrap-geo.js",
     "backup": "node server/scripts/backup.js",
+    "build:exe": "node scripts/build-exe.js",
     "test": "node --test server/*.test.js"
   },
   "dependencies": {

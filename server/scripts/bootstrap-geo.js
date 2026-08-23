@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { GEO_DIR as OUT, BASE_DIR } from '../paths.js'
 fs.mkdirSync(OUT, { recursive: true })
 
@@ -23,7 +24,7 @@ function save(name, data) {
 // 直辖市：city 层即区县，无真正"市"层级
 const MUNICIPALITIES = new Set(['110000', '120000', '310000', '500000'])
 
-async function main() {
+async function run() {
   const provinces = await fetchJSON(`${BASE}/100000_full.json`)
   if (!provinces) throw new Error('100000_full.json not found')
   save('100000_full.json', provinces)
@@ -113,4 +114,11 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1) })
+// 供 server/index.js 在打包态首启时自动调用
+export { run as downloadBoundaryData }
+
+// 仅直接执行（node scripts/bootstrap-geo.js）时自动运行
+const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+if (invokedDirectly) {
+  run().catch((e) => { console.error(e); process.exit(1) })
+}

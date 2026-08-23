@@ -10,3 +10,4 @@ server/data/app.db-wal
 .DS_Store
 backups/
 public/fonts/
+release/

@@ -68,21 +68,51 @@ const VIDEO_EXTS = new Set(['.mov', '.mp4', '.m4v'])
 export const isVideoFile = (name) => VIDEO_EXTS.has(path.extname(name).toLowerCase())
 
 // 选择 ffmpeg：优先支持 NVENC 的（GPU 加速），否则退回静态版
+// 候选顺序：FFMPEG_PATH env → 包目录(exe 同目录，打包态) → ~/bin/ffmpeg → 系统 PATH → ffmpeg-static
 let ffmpegCache = null
 async function resolveFfmpeg() {
   if (ffmpegCache) return ffmpegCache
-  const home = path.join(process.env.HOME || '', 'bin', 'ffmpeg')
-  const candidates = [process.env.FFMPEG_PATH, home, 'ffmpeg', ffmpegPath].filter(Boolean)
+  const exeSuffix = process.platform === 'win32' ? '.exe' : ''
+  const home = path.join(process.env.HOME || '', 'bin', `ffmpeg${exeSuffix}`)
+  const candidates = [
+    process.env.FFMPEG_PATH,
+    path.join(BASE_DIR, `ffmpeg${exeSuffix}`),
+    home,
+    'ffmpeg',
+    ffmpegPath,
+  ].filter(Boolean)
   for (const candidate of candidates) {
     try {
       const { stdout } = await execFileAsync(candidate, ['-hide_banner', '-encoders'])
       const gpu = /h264_nvenc/.test(stdout)
+      console.log(`[ffmpeg] 使用: ${candidate}${gpu ? ' (NVENC)' : ''}`)
       ffmpegCache = { path: candidate, gpu }
       return ffmpegCache
     } catch { /* 下一个候选 */ }
   }
   ffmpegCache = { path: ffmpegPath, gpu: false }
   return ffmpegCache
+}
+
+// 选择 ffprobe：包目录优先于静态版（打包态静态版在只读快照内无法执行）
+let ffprobeCache = null
+async function resolveFfprobe() {
+  if (ffprobeCache) return ffprobeCache
+  const exeSuffix = process.platform === 'win32' ? '.exe' : ''
+  const candidates = [
+    process.env.FFPROBE_PATH,
+    path.join(BASE_DIR, `ffprobe${exeSuffix}`),
+    ffprobePath.path,
+  ].filter(Boolean)
+  for (const c of candidates) {
+    try {
+      await execFileAsync(c, ['-version'])
+      ffprobeCache = c
+      return ffprobeCache
+    } catch { /* 下一个候选 */ }
+  }
+  ffprobeCache = ffprobePath.path
+  return ffprobeCache
 }
 
 // 解析 ISO6709 位置标签，如 "+23.0106+113.1620/" 或 "+23.0106+113.1620+10.5/"
@@ -95,7 +125,7 @@ function parseIso6709(loc) {
 
 // ffprobe 读取视频元数据：GPS、拍摄时间、时长
 export async function probeVideo(srcPath) {
-  const { stdout } = await execFileAsync(ffprobePath.path, [
+  const { stdout } = await execFileAsync(await resolveFfprobe(), [
     '-v', 'quiet', '-print_format', 'json', '-show_format', srcPath,
   ])
   const j = JSON.parse(stdout)

@@ -27,6 +27,18 @@ docker compose up -d          # 首次启动自动下载边界数据
 
 数据持久化：`./server/data`（SQLite + 边界数据）与 `./uploads`（照片文件）挂载到宿主机。
 
+## 桌面便携包（免安装）
+
+不想装 Node.js？到 [Releases](https://github.com/kengrary/travel-photo-project/releases) 下载对应平台的便携包（如 `travel-photo-map-win-x64.zip`）：
+
+1. 解压到任意目录，双击 `启动.bat`（Windows）/ `start.sh`（Linux）
+2. 服务启动后自动打开浏览器；端口被占用时自动 +1 重试
+3. 首次启动自动下载中国边界数据（约 1 分钟），之后完全离线可用
+
+- 照片与数据库保存在包目录下的 `uploads/` 与 `data/`
+- 包内自带 ffmpeg/ffprobe，视频转码开箱即用
+- 也可自行构建：在目标平台上 `npm install && npm run build:exe`
+
 ## 页面
 
 - **地图** (`/`): 按省/市/县聚簇展示照片拍摄地。
