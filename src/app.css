@@ -271,6 +271,104 @@ a { text-decoration: none; color: inherit; }
 }
 .tl-place-expand .photogrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
 .tl-place-expand .photo-card img { aspect-ratio: 1; }
+/* 定位闪烁高亮 */
+.tl-place.flash .tl-place-btn { animation: tl-flash 1.5s ease; }
+@keyframes tl-flash {
+  0%, 55% { background: rgba(200, 67, 47, 0.16); border-color: var(--vermillion); }
+  100% { background: transparent; border-color: transparent; }
+}
+.tl-year, .tl-place { scroll-margin-top: 84px; }
+
+/* ---- 时间轴：年份折叠 + 侧边索引 + 地点搜索 ---- */
+.tl-wrap { display: flex; align-items: flex-start; gap: 22px; }
+.timeline { flex: 1; min-width: 0; }
+/* 工具条：搜索 + 全部展开/收起 */
+.tl-toolbar { display: flex; align-items: center; gap: 10px; margin: 14px 0 22px; flex-wrap: wrap; }
+.tl-toolbar .btn { height: 42px; padding-top: 0; padding-bottom: 0; }
+.tl-search { position: relative; }
+.tl-search .wall-filter-input { min-width: 260px; }
+.tl-search-results {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+  min-width: 320px; max-width: 420px; max-height: 320px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 6px;
+}
+.tl-search-item {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  padding: 8px 10px; background: transparent; border: none; border-radius: 4px;
+  text-align: left; font: inherit; cursor: pointer; transition: background 0.12s;
+}
+.tl-search-item:hover { background: rgba(200, 67, 47, 0.07); }
+.tl-search-place { flex: 1; font-size: 13px; color: var(--ink); font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-search-meta { font-size: 11px; color: var(--ink-soft); flex-shrink: 0; }
+.tl-search-empty, .tl-search-more { padding: 8px 10px; font-size: 12px; color: var(--ink-soft); }
+/* 侧边年份索引 */
+.tl-nav {
+  position: sticky; top: 78px; z-index: 5;
+  width: 132px; flex-shrink: 0;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px;
+}
+.tl-nav-title {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--ink-soft); margin: 2px 6px 8px;
+}
+.tl-nav-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 7px 8px; margin-bottom: 2px;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  font: inherit; cursor: pointer; transition: all 0.13s;
+}
+.tl-nav-item:hover { background: rgba(200, 67, 47, 0.06); border-color: var(--line); }
+.tl-nav-item.active { background: var(--vermillion); border-color: var(--vermillion); }
+.tl-nav-item.active .tl-nav-yr { color: #fff; }
+.tl-nav-item.active .tl-nav-count { color: rgba(255, 255, 255, 0.8); }
+.tl-nav-yr { font-family: var(--display); font-size: 14px; font-weight: 700; color: var(--ink); }
+.tl-nav-count { font-size: 11px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+/* 年份头（可点击展开/收起） */
+.tl-year-head {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  padding: 2px 10px 10px; margin-bottom: 10px;
+  background: transparent; border: none; border-bottom: 1px solid var(--line);
+  text-align: left; font: inherit; cursor: pointer;
+}
+.tl-year-head:hover .tl-year-title { color: var(--vermillion); }
+.tl-year-chevron { font-size: 11px; color: var(--ink-soft); width: 10px; }
+.tl-year-title { font-family: var(--display); font-size: 16px; font-weight: 700; letter-spacing: 0.5px; color: var(--ink); transition: color 0.13s; }
+.tl-year-count { font-size: 12px; color: var(--ink-soft); }
+/* 收起态：该年地点 chip 一览 */
+.tl-year-provs { display: flex; flex-direction: column; gap: 4px; padding-bottom: 6px; }
+.tl-prov { border-bottom: 1px solid var(--line); }
+.tl-prov:last-child { border-bottom: none; }
+.tl-prov-head {
+  display: flex; align-items: baseline; gap: 10px; width: 100%;
+  padding: 8px 10px;
+  background: transparent; border: none; border-radius: 4px;
+  font: inherit; cursor: pointer; text-align: left; transition: background 0.13s;
+}
+.tl-prov-head:hover { background: rgba(200, 67, 47, 0.06); }
+.tl-prov-chevron { font-size: 11px; color: var(--ink-soft); width: 10px; }
+.tl-prov-name { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--ink); letter-spacing: 0.3px; }
+.tl-prov-count { font-size: 11px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.tl-year-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 4px 8px 24px; }
+.tl-chip {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  padding: 5px 11px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  font: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer;
+  transition: all 0.13s;
+}
+.tl-chip:hover { border-color: var(--vermillion); color: var(--vermillion); background: rgba(200, 67, 47, 0.05); }
+.tl-chip.match { border-color: var(--vermillion); color: var(--vermillion); box-shadow: 0 0 0 1px var(--vermillion); }
+.tl-chip-count { font-size: 11px; color: var(--ink-soft); }
+.tl-chip:hover .tl-chip-count { color: var(--vermillion); }
+
+@media (max-width: 768px) {
+  .tl-nav { display: none; }
+  .tl-search { flex: 1; }
+  .tl-search .wall-filter-input { width: 100%; min-width: 0; }
+  .tl-search-results { min-width: 0; width: calc(100vw - 88px); max-width: 100%; }
+}
 
 
 /* ---- 照片网格：发丝线框卡片 ---- */
