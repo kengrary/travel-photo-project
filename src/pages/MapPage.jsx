@@ -7,6 +7,16 @@ import { fetchPhotos } from '../api.js'
 import PhotoPanel from '../components/PhotoPanel.jsx'
 import VideoDialog from '../components/VideoDialog.jsx'
 
+// 从所选照片推断地名：县→市→省逐级取唯一值，均不唯一则用兜底（聚类点 label 常是"N 张照片"）
+function derivePlaceName(photos, fallback) {
+  const uniq = (key) => [...new Set(photos.map((p) => p[key]).filter(Boolean))]
+  for (const key of ['county', 'city', 'province']) {
+    const vals = uniq(key)
+    if (vals.length === 1) return vals[0]
+  }
+  return (fallback && !/张照片$/.test(fallback) ? fallback : '') || '旅行'
+}
+
 const CENTER = [104.2, 35.6]
 
 // 高德中文栅格瓦片（自带全部中国省市县/街道中文地名与边界）
@@ -288,7 +298,7 @@ export default function MapPage() {
         label={selected?.label}
         onClose={() => setSelected(null)}
         onDeleted={() => loadPhotosRef.current()}
-        onGenerate={(photos, placeName) => setVideoFor({ photos, placeName })}
+        onGenerate={(photos, placeName) => setVideoFor({ photos, placeName: derivePlaceName(photos, placeName) })}
       />
 
       {videoFor && (
