@@ -29,6 +29,8 @@ test('POST /api/videos/render 缺 fileNames 返回 400', async () => {
 test('POST /api/videos/render 传入不存在的 BGM 返回 400', async () => {
   const res = await request(app).post('/api/videos/render').send({ fileNames: ['x.jpg'], bgm: '../../etc/passwd' })
   assert.equal(res.status, 400)
+  // 必须命中 BGM 校验（而非"素材在库中不存在"），否则无法区分路径校验是否失效
+  assert.match(res.body.error, /BGM/)
 })
 
 test('DELETE /api/videos/:name 不存在返回 404', async () => {
