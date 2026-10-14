@@ -6,6 +6,7 @@ import { openDb } from './db.js'
 import { loadGeoIndex, reverseGeocode } from './geocode.js'
 import { photosRouter } from './routes/photos.js'
 import { importRouter } from './routes/import.js'
+import { videosRouter } from './routes/videos.js'
 import { writeAuthGuard } from './auth.js'
 import { GEO_DIR, UPLOAD_DIR, DIST_DIR, BASE_DIR, PORTABLE_MODE } from './paths.js'
 
@@ -33,6 +34,9 @@ app.use('/api/photos', photosRouter(db, geo))
 // 批量导入：扫描为只读但暴露文件系统信息，导入为写操作，统一纳入鉴权
 app.use('/api/import', writeAuthGuard)
 app.use('/api/import', importRouter(db, geo))
+// 旅行成片：渲染为写操作，纳入鉴权
+app.use('/api/videos', writeAuthGuard)
+app.use('/api/videos', videosRouter(db))
 
 // 逆地理编码：根据经纬度反查省市县
 app.get('/api/geocode/reverse', (req, res) => {

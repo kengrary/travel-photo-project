@@ -121,3 +121,14 @@ export function deletePhoto(db, id) {
   db.prepare('DELETE FROM photos WHERE id = ?').run(id)
   return photo
 }
+
+// 按 filename 批量查询（保持传入顺序，缺失的跳过）
+export function listPhotosByFilenames(db, names) {
+  const stmt = db.prepare('SELECT * FROM photos WHERE filename = ?')
+  const out = []
+  for (const name of names) {
+    const row = stmt.get(name)
+    if (row) out.push(row)
+  }
+  return out
+}
