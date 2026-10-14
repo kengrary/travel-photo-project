@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchPhotos, deletePhoto } from '../api.js'
 import PhotoGrid from './PhotoGrid.jsx'
 
-export default function PhotoPanel({ filter, photos, label, onClose, onDeleted }) {
+export default function PhotoPanel({ filter, photos, label, onClose, onDeleted, onGenerate }) {
   const [loadedPhotos, setLoadedPhotos] = useState(null)
   const [collapsed, setCollapsed] = useState(false)
   const [removedIds, setRemovedIds] = useState(() => new Set())
@@ -47,6 +47,10 @@ export default function PhotoPanel({ filter, photos, label, onClose, onDeleted }
           <strong>{place || '照片'}</strong>
         </div>
         <div className="panel-actions">
+          {onGenerate && (
+            <button className="btn btn-ghost panel-generate" disabled={shown.length === 0}
+              onClick={() => onGenerate(shown, place)}>生成旅行视频</button>
+          )}
           <button className="panel-toggle" onClick={() => setCollapsed(true)} title="折叠">▶</button>
           <button className="panel-close" onClick={onClose} title="关闭">×</button>
         </div>

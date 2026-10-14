@@ -5,6 +5,7 @@ import Supercluster from 'supercluster'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { fetchPhotos } from '../api.js'
 import PhotoPanel from '../components/PhotoPanel.jsx'
+import VideoDialog from '../components/VideoDialog.jsx'
 
 const CENTER = [104.2, 35.6]
 
@@ -89,6 +90,7 @@ export default function MapPage() {
   const [photos, setPhotos] = useState([])
   const [hover, setHover] = useState(null)
   const [selected, setSelected] = useState(null)
+  const [videoFor, setVideoFor] = useState(null)
   const navigate = useNavigate()
 
   // 根据当前视野和缩放，计算聚合点并更新图层数据
@@ -286,7 +288,12 @@ export default function MapPage() {
         label={selected?.label}
         onClose={() => setSelected(null)}
         onDeleted={() => loadPhotosRef.current()}
+        onGenerate={(photos, placeName) => setVideoFor({ photos, placeName })}
       />
+
+      {videoFor && (
+        <VideoDialog photos={videoFor.photos} placeName={videoFor.placeName} onClose={() => setVideoFor(null)} />
+      )}
     </div>
   )
 }
