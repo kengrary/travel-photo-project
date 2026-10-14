@@ -71,6 +71,7 @@ test('buildConcatArgs 两段含 xfade/acrossfade，配 BGM 含 amix 与 stream_l
   assert.match(fc, /acrossfade/)
   assert.match(fc, /amix/)
   assert.ok(a.includes('-stream_loop'))
+  assert.ok(a.includes('yuv420p'))
   assert.equal(a[a.length - 1], 'out.mp4')
 })
 

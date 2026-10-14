@@ -161,6 +161,7 @@ export function buildConcatArgs({ clips, dest, assPath, width, height, bgm, bgmV
     '-y', ...inputs, ...filterArgs,
     '-map', vmap, '-map', amap,
     ...encodeArgs(encoder), '-c:a', 'aac', '-b:a', '160k',
+    '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', '-r', String(fps), dest,
   ]
 }
@@ -198,37 +199,43 @@ export async function renderVideo({ assets, placeName, aspect, bgm, length }, on
   const ff = await resolveFfmpeg()
   const encoder = { gpu: ff.gpu, crf }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'travel-video-'))
+  const name = `${safeName(placeName)}-${Date.now()}.mp4`
+  const outputPath = path.join(EXPORTS_DIR, name)
+  let ok = false
   try {
-    // 阶段一：逐素材归一化为统一的无声/有声片段
+    // 阶段一：逐素材归一化为统一的无声/有声片段（单素材失败跳过，不阻断整体）
     const clips = []
     for (let i = 0; i < timeline.length; i++) {
       const seg = timeline[i]
       const asset = assets.find((a) => a.id === seg.id)
       const dest = path.join(tmp, `clip-${String(i).padStart(3, '0')}.mp4`)
-      if (seg.mediaType === 'video') {
-        const hasAudio = await hasAudioStream(asset.mediaPath)
-        await execFileAsync(ff.path, buildVideoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration, hasAudio }))
-        clips.push({ path: dest, duration: seg.duration, hasAudio })
-      } else {
-        await execFileAsync(ff.path, buildPhotoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration }))
-        clips.push({ path: dest, duration: seg.duration, hasAudio: true })
+      try {
+        if (seg.mediaType === 'video') {
+          const hasAudio = await hasAudioStream(asset.mediaPath)
+          await execFileAsync(ff.path, buildVideoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration, hasAudio }))
+          clips.push({ path: dest, duration: seg.duration, hasAudio, takenAt: seg.takenAt })
+        } else {
+          await execFileAsync(ff.path, buildPhotoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration }))
+          clips.push({ path: dest, duration: seg.duration, hasAudio: true, takenAt: seg.takenAt })
+        }
+      } catch (e) {
+        console.warn(`[成片] 素材渲染失败，跳过：${asset?.filename || seg.filename} — ${e.message}`)
       }
       onProgress('render', i + 1, timeline.length)
     }
+    if (clips.length === 0) throw new Error('所有素材渲染失败')
 
     // 阶段二：合成（assPath 用相对路径 + cwd=tmp）
-    const dates = timeline.map((s) => String(s.takenAt || '').slice(0, 10)).filter(Boolean).sort()
+    const dates = clips.map((c) => String(c.takenAt || '').slice(0, 10)).filter(Boolean).sort()
     const assFile = path.join(tmp, 'sub.ass')
     fs.writeFileSync(assFile, buildAss({
-      placeName, firstDate: dates[0] || '', lastDate: dates[dates.length - 1] || '', count: timeline.length,
+      placeName, firstDate: dates[0] || '', lastDate: dates[dates.length - 1] || '', count: clips.length,
       width: dims.w, height: dims.h, font, introDur: 4,
     }))
     onProgress('compose', 0, 1)
 
     const totalDuration = clips.reduce((s, c) => s + c.duration, 0) - TRANSITION * Math.max(0, clips.length - 1)
     const bgmPath = bgm ? path.join(MUSIC_DIR, bgm) : null
-    const name = `${safeName(placeName)}-${Date.now()}.mp4`
-    const outputPath = path.join(EXPORTS_DIR, name)
     const args = buildConcatArgs({
       clips, dest: outputPath, assPath: 'sub.ass', width: dims.w, height: dims.h,
       bgm: bgmPath, totalDuration, encoder,
@@ -247,8 +254,11 @@ export async function renderVideo({ assets, placeName, aspect, bgm, length }, on
       await execFileAsync(ff.path, cpuArgs, { cwd: tmp, maxBuffer: 1024 * 1024 * 16 })
     }
     onProgress('compose', 1, 1)
+    ok = true
     return { name, outputPath }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
+    // 合成失败时清理可能残留的半成品，避免污染 exports 列表
+    if (!ok) fs.rmSync(outputPath, { force: true })
   }
 }
