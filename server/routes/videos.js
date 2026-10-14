@@ -29,7 +29,15 @@ export function videosRouter(db) {
     const id = `video-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const job = { id, kind: 'video', status: 'running', phase: '', processed: 0, total: 0, createdAt: Date.now() }
     jobs.set(id, job)
+    pruneJobs()
     return job
+  }
+
+  // 控制任务表规模：超过 50 条时从最旧的已完成任务开始清理
+  function pruneJobs() {
+    if (jobs.size <= 50) return
+    const done = [...jobs.values()].filter((j) => j.status !== 'running').sort((a, b) => a.createdAt - b.createdAt)
+    for (const j of done) { if (jobs.size <= 50) break; jobs.delete(j.id) }
   }
 
   // 启动渲染
@@ -38,6 +46,11 @@ export function videosRouter(db) {
     if (!Array.isArray(fileNames) || fileNames.length === 0) return res.status(400).json({ error: '未选择任何素材' })
     if (aspect && !ASPECTS[aspect]) return res.status(400).json({ error: `不支持的画幅: ${aspect}` })
     if (length && !LENGTHS[length]) return res.status(400).json({ error: `不支持的时长档: ${length}` })
+    if (bgm) {
+      let bgmOk = false
+      try { bgmOk = fs.readdirSync(MUSIC_DIR).includes(bgm) && AUDIO_EXTS.has(path.extname(bgm).toLowerCase()) } catch { bgmOk = false }
+      if (!bgmOk) return res.status(400).json({ error: `BGM 不存在: ${bgm}` })
+    }
     if (running) return res.status(409).json({ error: '已有成片任务进行中', jobId: running })
 
     const rows = listPhotosByFilenames(db, fileNames)

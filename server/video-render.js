@@ -42,15 +42,18 @@ export function planTimeline(assets, { targetSeconds, perPhoto = PER_PHOTO, maxV
   return segs.map(({ score, ...s }) => s)
 }
 
-// 转 ASS 时间戳：H:MM:SS.cc
+// 转 ASS 时间戳：H:MM:SS.cc（按厘秒分解，避免四舍五入产生 .100）
 function assTime(sec) {
-  const s = Math.max(0, sec)
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const ss = Math.floor(s % 60)
-  const cc = Math.round((s - Math.floor(s)) * 100)
-  return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}.${String(cc).padStart(2, '0')}`
+  const cs = Math.max(0, Math.round(sec * 100))
+  const h = Math.floor(cs / 360000)
+  const m = Math.floor((cs % 360000) / 6000)
+  const s = Math.floor((cs % 6000) / 100)
+  const c = cs % 100
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(c).padStart(2, '0')}`
 }
+
+// 转义 ASS 覆盖语法特殊字符
+const assEscape = (s) => String(s).replace(/\\/g, '\\\\').replace(/{/g, '\\{').replace(/}/g, '\\}')
 
 // 生成片头大标题 ASS：地点名 + 日期范围 + 张数
 export function buildAss({ placeName, firstDate, lastDate, count, width, height, font, introDur = 4 }) {
@@ -69,7 +72,7 @@ Style: Title,${font},${Math.round(height / 14)},&H00FFFFFF,&H000000FF,&H96000000
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,${assTime(0)},${assTime(introDur)},Title,,0,0,0,,${placeName}\\N{\\fs${Math.round(height / 30)}}${subtitle}
+Dialogue: 0,${assTime(0)},${assTime(introDur)},Title,,0,0,0,,${assEscape(placeName)}\\N{\\fs${Math.round(height / 30)}}${subtitle}
 `
 }
 

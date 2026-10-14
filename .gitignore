@@ -11,3 +11,5 @@ server/data/app.db-wal
 backups/
 public/fonts/
 release/
+exports/
+server/data/music/

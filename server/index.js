@@ -11,7 +11,7 @@ import { writeAuthGuard } from './auth.js'
 import { GEO_DIR, UPLOAD_DIR, DIST_DIR, BASE_DIR, PORTABLE_MODE } from './paths.js'
 
 const app = express()
-app.use(express.json())
+app.use(express.json({ limit: '2mb' }))
 
 const db = openDb()
 
