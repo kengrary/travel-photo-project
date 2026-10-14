@@ -39,3 +39,37 @@ test('buildAss 含字体名、地点名与画布尺寸', () => {
   assert.match(ass, /大理/)
   assert.match(ass, /Dialogue:/)
 })
+
+import { buildPhotoArgs, buildVideoArgs, buildConcatArgs } from './video-render.js'
+
+test('buildPhotoArgs 用 zoompan 做运镜、补静音轨、限时长', () => {
+  const a = buildPhotoArgs({ src: 'p.jpg', dest: 'c.mp4', width: 1920, height: 1080, duration: 3 })
+  assert.ok(a.includes('-i') && a.includes('p.jpg'))
+  const fc = a[a.indexOf('-filter_complex') + 1]
+  assert.match(fc, /zoompan/)
+  assert.match(fc, /anullsrc|1:a|0:a|1:v/)
+  assert.equal(a[a.indexOf('-t') + 1], '3')
+  assert.equal(a[a.length - 1], 'c.mp4')
+})
+
+test('buildVideoArgs 有音轨时映射 [a]，无音轨时补 anullsrc', () => {
+  const withA = buildVideoArgs({ src: 'v.mp4', dest: 'c.mp4', width: 1080, height: 1920, duration: 4, hasAudio: true })
+  assert.ok(withA.includes('[a]'))
+  assert.ok(!withA.includes('anullsrc'))
+  const noA = buildVideoArgs({ src: 'v.mp4', dest: 'c.mp4', width: 1080, height: 1920, duration: 4, hasAudio: false })
+  assert.ok(noA.some((x) => String(x).includes('anullsrc')))
+})
+
+test('buildConcatArgs 两段含 xfade/acrossfade，配 BGM 含 amix 与 stream_loop', () => {
+  const clips = [{ path: 'a.mp4', duration: 3, hasAudio: true }, { path: 'b.mp4', duration: 3, hasAudio: true }]
+  const a = buildConcatArgs({
+    clips, dest: 'out.mp4', assPath: 'sub.ass', width: 1920, height: 1080,
+    bgm: '/m/song.mp3', bgmVolume: 0.5, totalDuration: 5.5, encoder: { gpu: false, crf: 20 },
+  })
+  const fc = a.filter((x, i) => a[i - 1] === '-filter_complex')[0]
+  assert.match(fc, /xfade/)
+  assert.match(fc, /acrossfade/)
+  assert.match(fc, /amix/)
+  assert.ok(a.includes('-stream_loop'))
+  assert.equal(a[a.length - 1], 'out.mp4')
+})

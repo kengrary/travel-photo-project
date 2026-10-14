@@ -72,3 +72,90 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 Dialogue: 0,${assTime(0)},${assTime(introDur)},Title,,0,0,0,,${placeName}\\N{\\fs${Math.round(height / 30)}}${subtitle}
 `
 }
+
+// 编码器参数：NVENC 用 -cq，CPU 用 -crf
+function encodeArgs(encoder) {
+  if (encoder.gpu) return ['-c:v', 'h264_nvenc', '-preset', 'p4', '-rc', 'vbr', '-cq', String(encoder.crf), '-b:v', '0']
+  return ['-c:v', 'libx264', '-preset', 'medium', '-crf', String(encoder.crf)]
+}
+
+// 照片 → 归一化短片：模糊铺底 + 居中适配 + 慢速推近，补静音立体声轨
+export function buildPhotoArgs({ src, dest, width, height, duration, fps = FPS }) {
+  const frames = Math.max(2, Math.round(duration * fps))
+  const fc = [
+    `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},gblur=sigma=25[bg]`,
+    `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease[fg]`,
+    `[bg][fg]overlay=(W-w)/2:(H-h)/2,zoompan=z='min(zoom+0.0009,1.2)':d=${frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}:fps=${fps},setsar=1,format=yuv420p[v]`,
+    `[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a]`,
+  ].join(';')
+  return [
+    '-y', '-i', src, '-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo',
+    '-filter_complex', fc, '-map', '[v]', '-map', '[a]',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+    '-c:a', 'aac', '-b:a', '128k',
+    '-t', String(duration), '-r', String(fps), dest,
+  ]
+}
+
+// 视频 → 归一化片段：裁剪/缩放至画布，采样率声道统一；无音轨则补静音
+export function buildVideoArgs({ src, dest, width, height, duration, hasAudio, fps = FPS }) {
+  const vf = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},fps=${fps},setsar=1,format=yuv420p[v]`
+  const args = ['-y', '-i', src]
+  let fc
+  if (hasAudio) {
+    fc = `${vf};[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a]`
+  } else {
+    args.push('-f', 'lavfi', '-i', 'anullsrc=r=44100:cl=stereo')
+    fc = `${vf};[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a]`
+  }
+  args.push('-filter_complex', fc, '-map', '[v]', '-map', '[a]',
+    '-t', String(duration), '-r', String(fps),
+    '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '20',
+    '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', dest)
+  return args
+}
+
+// 合成：视频 xfade 链 + ass 字幕 + 音频 acrossfade 链 + BGM amix
+// assPath 需为相对路径（调用方以临时目录为 cwd 执行，规避 Windows 盘符转义问题）
+export function buildConcatArgs({ clips, dest, assPath, width, height, bgm, bgmVolume = 0.5, totalDuration, encoder, fps = FPS }) {
+  const n = clips.length
+  const inputs = []
+  for (const c of clips) inputs.push('-i', c.path)
+  let bgmIndex = null
+  if (bgm) { inputs.push('-stream_loop', '-1', '-i', bgm); bgmIndex = n }
+
+  const fc = []
+  // 视频：逐段 xfade 叠化
+  let vprev = '0:v'
+  let offset = 0
+  for (let i = 1; i < n; i++) {
+    offset += clips[i - 1].duration - TRANSITION
+    const label = `v${i}`
+    fc.push(`[${vprev}][${i}:v]xfade=transition=fade:duration=${TRANSITION}:offset=${offset.toFixed(3)}[${label}]`)
+    vprev = label
+  }
+  let vfinal = n === 1 ? '0:v' : vprev
+  if (assPath) {
+    fc.push(`[${vfinal}]ass=${assPath}[vout]`)
+    vfinal = 'vout'
+  }
+  // 音频：逐段 acrossfade（与 xfade 重叠一致）
+  let aprev = '0:a'
+  for (let i = 1; i < n; i++) {
+    const label = `a${i}`
+    fc.push(`[${aprev}][${i}:a]acrossfade=d=${TRANSITION}:c1=tri:c2=tri[${label}]`)
+    aprev = label
+  }
+  let afinal = n === 1 ? '0:a' : aprev
+  if (bgm) {
+    fc.push(`[${bgmIndex}:a]volume=${bgmVolume},atrim=0:${(totalDuration).toFixed(3)},asetpts=PTS-STARTPTS[bgm]`)
+    fc.push(`[${afinal}][bgm]amix=inputs=2:duration=first:normalize=0[aout]`)
+    afinal = 'aout'
+  }
+  return [
+    '-y', ...inputs, '-filter_complex', fc.join(';'),
+    '-map', `[${vfinal}]`, '-map', `[${afinal}]`,
+    ...encodeArgs(encoder), '-c:a', 'aac', '-b:a', '160k',
+    '-movflags', '+faststart', '-r', String(fps), dest,
+  ]
+}
