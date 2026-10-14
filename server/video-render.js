@@ -155,8 +155,10 @@ export function buildConcatArgs({ clips, dest, assPath, width, height, bgm, bgmV
   // 单段且未经过滤镜时该流是直通输入，须按流映射（0:v/0:a）而非滤镜标签（[0:v] 会报不存在）
   const vmap = (n === 1 && !assPath) ? '0:v' : `[${vfinal}]`
   const amap = (n === 1 && !bgm) ? '0:a' : `[${afinal}]`
+  // 无任何滤镜时不传 -filter_complex（空串会被 ffmpeg 拒绝）
+  const filterArgs = fc.length ? ['-filter_complex', fc.join(';')] : []
   return [
-    '-y', ...inputs, '-filter_complex', fc.join(';'),
+    '-y', ...inputs, ...filterArgs,
     '-map', vmap, '-map', amap,
     ...encodeArgs(encoder), '-c:a', 'aac', '-b:a', '160k',
     '-movflags', '+faststart', '-r', String(fps), dest,

@@ -82,4 +82,5 @@ test('buildConcatArgs 单段无字幕无 BGM 时按原始流映射（0:v/0:a）'
   })
   const maps = a.filter((x, i) => a[i - 1] === '-map')
   assert.deepEqual(maps, ['0:v', '0:a'])
+  assert.ok(!a.includes(''), '无滤镜时不应产生空的 -filter_complex')
 })
