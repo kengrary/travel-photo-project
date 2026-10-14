@@ -165,7 +165,7 @@ import sharp from 'sharp'
 import { toGray, dHash, hammingDistance, laplacianVariance, exposureRatio, analyzeAssets } from './analyze.js'
 
 test('toGray 单通道原样返回，多通道按亮度加权', () => {
-  assert.deepEqual([...toGray(new Uint8Array([10, 20, 30]), 1, 1, 3)], [26])
+  assert.deepEqual([...toGray(new Uint8Array([10, 20, 30]), 1, 1, 3)], [18])
 })
 
 test('dHash 相同图像距离为 0', () => {
@@ -524,9 +524,9 @@ test('buildPhotoArgs 用 zoompan 做运镜、补静音轨、限时长', () => {
 test('buildVideoArgs 有音轨时映射 [a]，无音轨时补 anullsrc', () => {
   const withA = buildVideoArgs({ src: 'v.mp4', dest: 'c.mp4', width: 1080, height: 1920, duration: 4, hasAudio: true })
   assert.ok(withA.includes('[a]'))
-  assert.ok(!withA.includes('anullsrc'))
+  assert.ok(!withA.some((x) => String(x).includes('anullsrc')))
   const noA = buildVideoArgs({ src: 'v.mp4', dest: 'c.mp4', width: 1080, height: 1920, duration: 4, hasAudio: false })
-  assert.ok(noA.includes('anullsrc'))
+  assert.ok(noA.some((x) => String(x).includes('anullsrc')))
 })
 
 test('buildConcatArgs 两段含 xfade/acrossfade，配 BGM 含 amix 与 stream_loop', () => {
@@ -540,7 +540,19 @@ test('buildConcatArgs 两段含 xfade/acrossfade，配 BGM 含 amix 与 stream_l
   assert.match(fc, /acrossfade/)
   assert.match(fc, /amix/)
   assert.ok(a.includes('-stream_loop'))
+  assert.ok(a.includes('yuv420p'))
   assert.equal(a[a.length - 1], 'out.mp4')
+})
+
+test('buildConcatArgs 单段无字幕无 BGM 时按原始流映射（0:v/0:a）', () => {
+  const a = buildConcatArgs({
+    clips: [{ path: 'a.mp4', duration: 3, hasAudio: true }],
+    dest: 'out.mp4', assPath: null, width: 1920, height: 1080,
+    bgm: null, totalDuration: 3, encoder: { gpu: false, crf: 20 },
+  })
+  const maps = a.filter((x, i) => a[i - 1] === '-map')
+  assert.deepEqual(maps, ['0:v', '0:a'])
+  assert.ok(!a.includes(''), '无滤镜时不应产生空的 -filter_complex')
 })
 ```
 
@@ -633,10 +645,16 @@ export function buildConcatArgs({ clips, dest, assPath, width, height, bgm, bgmV
     fc.push(`[${afinal}][bgm]amix=inputs=2:duration=first:normalize=0[aout]`)
     afinal = 'aout'
   }
+  // 单段且未经过滤镜时该流是直通输入，须按流映射（0:v/0:a）而非滤镜标签（[0:v] 会报不存在）
+  const vmap = (n === 1 && !assPath) ? '0:v' : `[${vfinal}]`
+  const amap = (n === 1 && !bgm) ? '0:a' : `[${afinal}]`
+  // 无任何滤镜时不传 -filter_complex（空串会被 ffmpeg 拒绝）
+  const filterArgs = fc.length ? ['-filter_complex', fc.join(';')] : []
   return [
-    '-y', ...inputs, '-filter_complex', fc.join(';'),
-    '-map', `[${vfinal}]`, '-map', `[${afinal}]`,
+    '-y', ...inputs, ...filterArgs,
+    '-map', vmap, '-map', amap,
     ...encodeArgs(encoder), '-c:a', 'aac', '-b:a', '160k',
+    '-pix_fmt', 'yuv420p',
     '-movflags', '+faststart', '-r', String(fps), dest,
   ]
 }
@@ -706,37 +724,43 @@ export async function renderVideo({ assets, placeName, aspect, bgm, length }, on
   const ff = await resolveFfmpeg()
   const encoder = { gpu: ff.gpu, crf }
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'travel-video-'))
+  const name = `${safeName(placeName)}-${Date.now()}.mp4`
+  const outputPath = path.join(EXPORTS_DIR, name)
+  let ok = false
   try {
-    // 阶段一：逐素材归一化为统一的无声/有声片段
+    // 阶段一：逐素材归一化为统一的无声/有声片段（单素材失败跳过，不阻断整体）
     const clips = []
     for (let i = 0; i < timeline.length; i++) {
       const seg = timeline[i]
       const asset = assets.find((a) => a.id === seg.id)
       const dest = path.join(tmp, `clip-${String(i).padStart(3, '0')}.mp4`)
-      if (seg.mediaType === 'video') {
-        const hasAudio = await hasAudioStream(asset.mediaPath)
-        await execFileAsync(ff.path, buildVideoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration, hasAudio }))
-        clips.push({ path: dest, duration: seg.duration, hasAudio })
-      } else {
-        await execFileAsync(ff.path, buildPhotoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration }))
-        clips.push({ path: dest, duration: seg.duration, hasAudio: true })
+      try {
+        if (seg.mediaType === 'video') {
+          const hasAudio = await hasAudioStream(asset.mediaPath)
+          await execFileAsync(ff.path, buildVideoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration, hasAudio }))
+          clips.push({ path: dest, duration: seg.duration, hasAudio, takenAt: seg.takenAt })
+        } else {
+          await execFileAsync(ff.path, buildPhotoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration }))
+          clips.push({ path: dest, duration: seg.duration, hasAudio: true, takenAt: seg.takenAt })
+        }
+      } catch (e) {
+        console.warn(`[成片] 素材渲染失败，跳过：${asset?.filename || seg.filename} — ${e.message}`)
       }
       onProgress('render', i + 1, timeline.length)
     }
+    if (clips.length === 0) throw new Error('所有素材渲染失败')
 
     // 阶段二：合成（assPath 用相对路径 + cwd=tmp）
-    const dates = timeline.map((s) => String(s.takenAt || '').slice(0, 10)).filter(Boolean).sort()
+    const dates = clips.map((c) => String(c.takenAt || '').slice(0, 10)).filter(Boolean).sort()
     const assFile = path.join(tmp, 'sub.ass')
     fs.writeFileSync(assFile, buildAss({
-      placeName, firstDate: dates[0] || '', lastDate: dates[dates.length - 1] || '', count: timeline.length,
+      placeName, firstDate: dates[0] || '', lastDate: dates[dates.length - 1] || '', count: clips.length,
       width: dims.w, height: dims.h, font, introDur: 4,
     }))
     onProgress('compose', 0, 1)
 
     const totalDuration = clips.reduce((s, c) => s + c.duration, 0) - TRANSITION * Math.max(0, clips.length - 1)
     const bgmPath = bgm ? path.join(MUSIC_DIR, bgm) : null
-    const name = `${safeName(placeName)}-${Date.now()}.mp4`
-    const outputPath = path.join(EXPORTS_DIR, name)
     const args = buildConcatArgs({
       clips, dest: outputPath, assPath: 'sub.ass', width: dims.w, height: dims.h,
       bgm: bgmPath, totalDuration, encoder,
@@ -755,9 +779,12 @@ export async function renderVideo({ assets, placeName, aspect, bgm, length }, on
       await execFileAsync(ff.path, cpuArgs, { cwd: tmp, maxBuffer: 1024 * 1024 * 16 })
     }
     onProgress('compose', 1, 1)
+    ok = true
     return { name, outputPath }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true })
+    // 合成失败时清理可能残留的半成品，避免污染 exports 列表
+    if (!ok) fs.rmSync(outputPath, { force: true })
   }
 }
 ```
@@ -1287,6 +1314,16 @@ export default function PhotoPanel({ filter, photos, label, onClose, onDeleted, 
 
 ```jsx
 import VideoDialog from '../components/VideoDialog.jsx'
+
+// 从所选照片推断地名：县→市→省逐级取唯一值，均不唯一则用兜底（聚类点 label 常是"N 张照片"）
+function derivePlaceName(photos, fallback) {
+  const uniq = (key) => [...new Set(photos.map((p) => p[key]).filter(Boolean))]
+  for (const key of ['county', 'city', 'province']) {
+    const vals = uniq(key)
+    if (vals.length === 1) return vals[0]
+  }
+  return (fallback && !/张照片$/.test(fallback) ? fallback : '') || '旅行'
+}
 ```
 
 在组件状态区加：
@@ -1298,7 +1335,7 @@ import VideoDialog from '../components/VideoDialog.jsx'
 给 `PhotoPanel` 增加 prop：
 
 ```jsx
-        onGenerate={(photos, placeName) => setVideoFor({ photos, placeName })}
+        onGenerate={(photos, placeName) => setVideoFor({ photos, placeName: derivePlaceName(photos, placeName) })}
 ```
 
 在 `<PhotoPanel ... />` 之后渲染：
@@ -1372,7 +1409,6 @@ function fmtSize(n) {
 
 export default function VideosPage() {
   const [videos, setVideos] = useState([])
-  const [playing, setPlaying] = useState(null)
 
   const load = () => listVideos().then(setVideos).catch(() => setVideos([]))
   useEffect(() => { load() }, [])
@@ -1380,7 +1416,6 @@ export default function VideosPage() {
   const remove = async (name) => {
     if (!window.confirm(`删除成片「${name}」？`)) return
     await deleteVideo(name)
-    if (playing === name) setPlaying(null)
     load()
   }
 
@@ -1403,9 +1438,7 @@ export default function VideosPage() {
         <div className="videos-grid">
           {videos.map((v) => (
             <div key={v.name} className="video-card">
-              {playing === v.name
-                ? <video src={videoUrl(v.name)} controls autoPlay />
-                : <video src={videoUrl(v.name)} controls preload="metadata" />}
+              <video src={videoUrl(v.name)} controls preload="metadata" />
               <div className="video-card-meta">
                 <span className="video-card-name" title={v.name}>{v.name}</span>
                 <span className="video-card-sub">{fmtSize(v.size)}</span>
