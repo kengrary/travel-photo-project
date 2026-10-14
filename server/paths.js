@@ -23,3 +23,5 @@ export const GEO_DIR = path.resolve(process.env.GEO_DIR || path.join(DATA_DIR, '
 export const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(BASE_DIR, 'uploads'))
 export const DIST_DIR = path.join(BASE_DIR, 'dist')
 export const BACKUPS_DIR = path.join(BASE_DIR, 'backups')
+export const EXPORTS_DIR = path.resolve(process.env.EXPORTS_DIR || path.join(BASE_DIR, 'exports'))
+export const MUSIC_DIR = path.resolve(process.env.MUSIC_DIR || path.join(DATA_DIR, 'music'))

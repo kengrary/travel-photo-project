@@ -19,6 +19,8 @@ test('开发态：路径符合项目布局', async () => {
   assert.equal(p.UPLOAD_DIR, path.join(ROOT, 'uploads'))
   assert.equal(p.DIST_DIR, path.join(ROOT, 'dist'))
   assert.equal(p.BACKUPS_DIR, path.join(ROOT, 'backups'))
+  assert.equal(p.EXPORTS_DIR, path.join(ROOT, 'exports'))
+  assert.equal(p.MUSIC_DIR, path.join(ROOT, 'server', 'data', 'music'))
 })
 
 test('env 覆盖优先于默认值', async () => {
@@ -50,6 +52,8 @@ test('打包态（process.pkg）：数据目录落在 exe 同目录', async () =
     assert.equal(p.UPLOAD_DIR, path.resolve('/fake/dir/uploads'))
     assert.equal(p.DIST_DIR, path.resolve('/fake/dir/dist'))
     assert.equal(p.BACKUPS_DIR, path.resolve('/fake/dir/backups'))
+    assert.equal(p.EXPORTS_DIR, path.resolve('/fake/dir/exports'))
+    assert.equal(p.MUSIC_DIR, path.resolve('/fake/dir/data/music'))
   } finally {
     delete process.pkg
   }

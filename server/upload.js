@@ -75,7 +75,7 @@ export const isVideoFile = (name) => VIDEO_EXTS.has(path.extname(name).toLowerCa
 // 选择 ffmpeg：优先支持 NVENC 的（GPU 加速），否则退回静态版
 // 候选顺序：FFMPEG_PATH env → 包目录(exe 同目录，打包态) → ~/bin/ffmpeg → 系统 PATH → ffmpeg-static
 let ffmpegCache = null
-async function resolveFfmpeg() {
+export async function resolveFfmpeg() {
   if (ffmpegCache) return ffmpegCache
   const exeSuffix = process.platform === 'win32' ? '.exe' : ''
   const home = path.join(process.env.HOME || '', 'bin', `ffmpeg${exeSuffix}`)
@@ -101,7 +101,7 @@ async function resolveFfmpeg() {
 
 // 选择 ffprobe：包目录优先于静态版（打包态静态版在只读快照内无法执行）
 let ffprobeCache = null
-async function resolveFfprobe() {
+export async function resolveFfprobe() {
   if (ffprobeCache) return ffprobeCache
   const exeSuffix = process.platform === 'win32' ? '.exe' : ''
   const candidates = [
@@ -142,6 +142,18 @@ export async function probeVideo(srcPath) {
   else takenAt = null
   const duration = Number(j.format?.duration) || null
   return { lat: pos?.lat ?? null, lng: pos?.lng ?? null, takenAt, duration }
+}
+
+// 判断视频是否含音频流（决定合成时是否需要补静音轨）
+const audioCache = new Map()
+export async function hasAudioStream(srcPath) {
+  if (audioCache.has(srcPath)) return audioCache.get(srcPath)
+  const { stdout } = await execFileAsync(await resolveFfprobe(), [
+    '-v', 'quiet', '-print_format', 'json', '-show_streams', '-select_streams', 'a', srcPath,
+  ])
+  const has = (JSON.parse(stdout).streams || []).length > 0
+  audioCache.set(srcPath, has)
+  return has
 }
 
 // 抽海报帧：优先第 1 秒，取不到帧（如视频不足 1 秒）时回退首帧。
