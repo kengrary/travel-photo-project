@@ -76,3 +76,17 @@ export const startImport = ({ jobId, originPaths, noOriginal, keepOriginalResolu
     headers: authHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify({ jobId, originPaths, noOriginal, keepOriginalResolution }),
   }).then(j)
+
+// ---- 旅行成片（按地点选段 → 后台渲染 → exports 产物）----
+export const listMusic = () => fetch('/api/videos/music').then(j).then((d) => d.music)
+export const renderVideo = (payload) =>
+  fetch('/api/videos/render', {
+    method: 'POST',
+    headers: authHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  }).then(j)
+export const getVideoJob = (id) => fetch(`/api/videos/jobs/${id}`, { headers: authHeaders() }).then(j)
+export const listVideos = () => fetch('/api/videos', { headers: authHeaders() }).then(j).then((d) => d.videos)
+export const deleteVideo = (name) =>
+  fetch(`/api/videos/${encodeURIComponent(name)}`, { method: 'DELETE', headers: authHeaders() }).then(j)
+export const videoUrl = (name) => `/api/videos/${encodeURIComponent(name)}`
