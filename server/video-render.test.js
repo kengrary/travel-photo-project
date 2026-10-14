@@ -73,3 +73,13 @@ test('buildConcatArgs 两段含 xfade/acrossfade，配 BGM 含 amix 与 stream_l
   assert.ok(a.includes('-stream_loop'))
   assert.equal(a[a.length - 1], 'out.mp4')
 })
+
+test('buildConcatArgs 单段无字幕无 BGM 时按原始流映射（0:v/0:a）', () => {
+  const a = buildConcatArgs({
+    clips: [{ path: 'a.mp4', duration: 3, hasAudio: true }],
+    dest: 'out.mp4', assPath: null, width: 1920, height: 1080,
+    bgm: null, totalDuration: 3, encoder: { gpu: false, crf: 20 },
+  })
+  const maps = a.filter((x, i) => a[i - 1] === '-map')
+  assert.deepEqual(maps, ['0:v', '0:a'])
+})

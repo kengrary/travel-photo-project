@@ -152,9 +152,12 @@ export function buildConcatArgs({ clips, dest, assPath, width, height, bgm, bgmV
     fc.push(`[${afinal}][bgm]amix=inputs=2:duration=first:normalize=0[aout]`)
     afinal = 'aout'
   }
+  // 单段且未经过滤镜时该流是直通输入，须按流映射（0:v/0:a）而非滤镜标签（[0:v] 会报不存在）
+  const vmap = (n === 1 && !assPath) ? '0:v' : `[${vfinal}]`
+  const amap = (n === 1 && !bgm) ? '0:a' : `[${afinal}]`
   return [
     '-y', ...inputs, '-filter_complex', fc.join(';'),
-    '-map', `[${vfinal}]`, '-map', `[${afinal}]`,
+    '-map', vmap, '-map', amap,
     ...encodeArgs(encoder), '-c:a', 'aac', '-b:a', '160k',
     '-movflags', '+faststart', '-r', String(fps), dest,
   ]
