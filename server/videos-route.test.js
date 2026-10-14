@@ -1,9 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import request from 'supertest'
 import express from 'express'
 import { openDb } from './db.js'
-import { videosRouter } from './routes/videos.js'
+import { videosRouter, photoMediaPath } from './routes/videos.js'
 
 const app = express()
 app.use(express.json())
@@ -41,4 +44,21 @@ test('DELETE /api/videos/:name 不存在返回 404', async () => {
 test('GET /api/videos/:name 不存在返回 404', async () => {
   const res = await request(app).get('/api/videos/nope.mp4')
   assert.equal(res.status, 404)
+})
+
+test('photoMediaPath 原图缺失时回退到 full 大图', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vasset-'))
+  fs.writeFileSync(path.join(dir, 'full-x.jpg'), 'x')
+  const row = { filename: 'missing.jpg', full_path: 'full-x.jpg' }
+  assert.equal(photoMediaPath(row, dir), path.join(dir, 'full-x.jpg'))
+  fs.rmSync(dir, { recursive: true, force: true })
+})
+
+test('photoMediaPath 原图存在时用原图', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vasset-'))
+  fs.writeFileSync(path.join(dir, 'orig.jpg'), 'x')
+  fs.writeFileSync(path.join(dir, 'full-orig.jpg'), 'x')
+  const row = { filename: 'orig.jpg', full_path: 'full-orig.jpg' }
+  assert.equal(photoMediaPath(row, dir), path.join(dir, 'orig.jpg'))
+  fs.rmSync(dir, { recursive: true, force: true })
 })

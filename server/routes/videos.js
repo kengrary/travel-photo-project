@@ -8,9 +8,23 @@ import { renderVideo, ASPECTS, LENGTHS } from '../video-render.js'
 
 const AUDIO_EXTS = new Set(['.mp3', '.m4a', '.aac', '.wav', '.flac', '.ogg'])
 
+// 照片渲染源：优先原始文件；--no-original 导入的原图不在 uploads（origin_path 在多不在的挂载盘），
+// 此时回退到导入时总是生成的 full 大图，避免整张照片被跳过
+export function photoMediaPath(row, uploadDir = UPLOAD_DIR) {
+  const orig = path.join(uploadDir, row.filename)
+  if (fs.existsSync(orig)) return orig
+  if (row.full_path) {
+    const full = path.join(uploadDir, row.full_path)
+    if (fs.existsSync(full)) return full
+  }
+  return orig
+}
+
 // 由 DB 行构造渲染素材描述（mediaPath 供 ffmpeg，imagePath 供择优分析）
 function toAsset(row) {
-  const mediaPath = path.join(UPLOAD_DIR, row.filename)
+  const mediaPath = row.media_type === 'video'
+    ? path.join(UPLOAD_DIR, row.filename)
+    : photoMediaPath(row)
   const imagePath = row.media_type === 'video'
     ? path.join(UPLOAD_DIR, row.thumb_path || row.filename)
     : path.join(UPLOAD_DIR, row.full_path || row.filename)
