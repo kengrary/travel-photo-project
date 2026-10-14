@@ -27,6 +27,7 @@ npm test                # node --test server/*.test.js（无 lint/typecheck 配�
 - 照片定位三字段 province/city/county 是聚合与筛选的键；无 GPS 照片归"未知位置"，可在地图手动补点。
 - 页面路由：`/`(地图)、`/wall`(照片墙)、`/timeline`(时间轴)、`/upload`(上传)、`/import`(批量导入)。API 在 `/api/photos*`、`/api/import*` 与 `/api/geocode/reverse`。
 - **视频转码**：默认降为宽 1280；`makeVideoAssets(..., { keepOriginalResolution: true })` 保持原分辨率（上传走 multipart 字段 `videoScale=original`）。海报帧抽取以产物存在且非空判定成功（部分 ffmpeg seek 越界退出码为 0 但不写文件）。
+- **旅行成片**：地图地点面板 → 筛选素材 → 后台 job（`/api/videos`，内存、全局单任务）→ 两阶段 ffmpeg（逐素材归一化 → xfade 拼接 + `ass` 字幕 + `amix` 混音）→ `exports/<地点>-<时间戳>.mp4`（`EXPORTS_DIR` 可覆盖），**不入库**。择优走 `server/analyze.js`（sharp 启发式，provider 接口占位）。BGM 从 `MUSIC_DIR`（默认 `server/data/music`）选曲，目录为空则无 BGM。字幕统一走 ASS/libass，**只用系统字体**：Linux 需 `sudo apt install fonts-noto-cjk`，`VIDEO_FONT` 可覆盖字体名；缺字体时静默无字幕。`ffmpeg-static` 不含 drawtext，故不用 drawtext。
 
 ## 批量导入
 
