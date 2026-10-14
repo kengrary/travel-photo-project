@@ -164,3 +164,91 @@ export function buildConcatArgs({ clips, dest, assPath, width, height, bgm, bgmV
     '-movflags', '+faststart', '-r', String(fps), dest,
   ]
 }
+
+// 安全文件名：去掉路径分隔与 Windows 非法字符
+function safeName(s) {
+  return String(s || '旅行').replace(/[\\/:*?"<>|\s]+/g, '-').slice(0, 40) || '旅行'
+}
+
+// 探测是否有中文字体（Linux 用 fc-list 尽力而为；缺失仅告警，不阻断）
+async function warnIfNoCjkFont(font) {
+  if (process.platform !== 'linux') return
+  try {
+    const { stdout } = await execFileAsync('fc-list', [':lang=zh'])
+    if (!stdout.trim()) console.warn(`[成片] 未检测到系统中文字体，字幕可能不显示；可执行 sudo apt install fonts-noto-cjk（当前 fontname=${font}）`)
+  } catch { /* 无 fc-list 则跳过 */ }
+}
+
+// 两阶段渲染：逐素材归一化 → xfade+ass+amix 合成。返回成片文件名与绝对路径
+export async function renderVideo({ assets, placeName, aspect, bgm, length }, onProgress = () => {}) {
+  const dims = ASPECTS[aspect] || ASPECTS['16:9']
+  const targetSeconds = LENGTHS[length] || LENGTHS.medium
+  const font = process.env.VIDEO_FONT || (process.platform === 'win32' ? 'Microsoft YaHei' : 'Noto Sans CJK SC')
+  const crf = Number(process.env.VIDEO_CRF) || 20
+  await warnIfNoCjkFont(font)
+
+  // 择优：先分析再规划
+  onProgress('analyze', 0, assets.length)
+  const metrics = await analyzeAssets(assets)
+  const byId = new Map(metrics.map((m) => [m.id, m]))
+  const scored = assets.map((a) => ({ ...a, score: byId.get(a.id)?.score ?? 0.5 }))
+  const timeline = planTimeline(scored, { targetSeconds })
+  if (timeline.length === 0) throw new Error('没有可用素材')
+
+  const ff = await resolveFfmpeg()
+  const encoder = { gpu: ff.gpu, crf }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'travel-video-'))
+  try {
+    // 阶段一：逐素材归一化为统一的无声/有声片段
+    const clips = []
+    for (let i = 0; i < timeline.length; i++) {
+      const seg = timeline[i]
+      const asset = assets.find((a) => a.id === seg.id)
+      const dest = path.join(tmp, `clip-${String(i).padStart(3, '0')}.mp4`)
+      if (seg.mediaType === 'video') {
+        const hasAudio = await hasAudioStream(asset.mediaPath)
+        await execFileAsync(ff.path, buildVideoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration, hasAudio }))
+        clips.push({ path: dest, duration: seg.duration, hasAudio })
+      } else {
+        await execFileAsync(ff.path, buildPhotoArgs({ src: asset.mediaPath, dest, width: dims.w, height: dims.h, duration: seg.duration }))
+        clips.push({ path: dest, duration: seg.duration, hasAudio: true })
+      }
+      onProgress('render', i + 1, timeline.length)
+    }
+
+    // 阶段二：合成（assPath 用相对路径 + cwd=tmp）
+    const dates = timeline.map((s) => String(s.takenAt || '').slice(0, 10)).filter(Boolean).sort()
+    const assFile = path.join(tmp, 'sub.ass')
+    fs.writeFileSync(assFile, buildAss({
+      placeName, firstDate: dates[0] || '', lastDate: dates[dates.length - 1] || '', count: timeline.length,
+      width: dims.w, height: dims.h, font, introDur: 4,
+    }))
+    onProgress('compose', 0, 1)
+
+    const totalDuration = clips.reduce((s, c) => s + c.duration, 0) - TRANSITION * Math.max(0, clips.length - 1)
+    const bgmPath = bgm ? path.join(MUSIC_DIR, bgm) : null
+    const name = `${safeName(placeName)}-${Date.now()}.mp4`
+    const outputPath = path.join(EXPORTS_DIR, name)
+    const args = buildConcatArgs({
+      clips, dest: outputPath, assPath: 'sub.ass', width: dims.w, height: dims.h,
+      bgm: bgmPath, totalDuration, encoder,
+    })
+    try {
+      await execFileAsync(ff.path, args, { cwd: tmp, maxBuffer: 1024 * 1024 * 16 })
+    } catch (e) {
+      if (!ff.gpu) throw e
+      // NVENC 合成失败：回退 CPU 重编码
+      const reason = String(e.stderr || '').split('\n').filter((l) => /Error|error|failed/i.test(l)).slice(-2).join(' | ') || e.message
+      console.warn(`[成片] NVENC 合成失败，回退 CPU：${reason}`)
+      const cpuArgs = buildConcatArgs({
+        clips, dest: outputPath, assPath: 'sub.ass', width: dims.w, height: dims.h,
+        bgm: bgmPath, totalDuration, encoder: { gpu: false, crf },
+      })
+      await execFileAsync(ff.path, cpuArgs, { cwd: tmp, maxBuffer: 1024 * 1024 * 16 })
+    }
+    onProgress('compose', 1, 1)
+    return { name, outputPath }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true })
+  }
+}
