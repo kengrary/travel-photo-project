@@ -4,6 +4,7 @@ import WallPage from './pages/WallPage.jsx'
 import UploadPage from './pages/UploadPage.jsx'
 import TimelinePage from './pages/TimelinePage.jsx'
 import ImportPage from './pages/ImportPage.jsx'
+import VideosPage from './pages/VideosPage.jsx'
 import './app.css'
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <NavLink to="/timeline" className={({ isActive }) => (isActive ? 'active' : '')}>时间轴</NavLink>
           <NavLink to="/upload" className={({ isActive }) => (isActive ? 'active' : '')}>上传</NavLink>
           <NavLink to="/import" className={({ isActive }) => (isActive ? 'active' : '')}>批量导入</NavLink>
+          <NavLink to="/videos" className={({ isActive }) => (isActive ? 'active' : '')}>成片</NavLink>
         </nav>
       </header>
       <Routes>
@@ -27,6 +29,7 @@ export default function App() {
         <Route path="/timeline" element={<TimelinePage />} />
         <Route path="/upload" element={<UploadPage />} />
         <Route path="/import" element={<ImportPage />} />
+        <Route path="/videos" element={<VideosPage />} />
       </Routes>
     </div>
   )
